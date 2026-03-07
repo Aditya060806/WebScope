@@ -1,0 +1,49 @@
+{
+  "name": "webview",
+  "version": "0.3.0",
+  "description": "A text-grid web renderer for AI agents — see the web without screenshots",
+  "main": "src/browser.js",
+  "bin": {
+    "webview": "src/cli.js",
+    "webview-mcp": "mcp/index.js"
+  },
+  "scripts": {
+    "start": "node src/cli.js",
+    "serve": "node src/server.js",
+    "test": "node test/test-form.js && node test/test-live.js && node test/test-ats-e2e.js",
+    "test:form": "node test/test-form.js",
+    "test:live": "node test/test-live.js",
+    "test:ats": "node test/test-ats-e2e.js"
+  },
+  "files": [
+    "src/",
+    "mcp/",
+    "tools/",
+    "logo.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "ai",
+    "agent",
+    "browser",
+    "text",
+    "renderer",
+    "llm",
+    "headless",
+    "accessibility"
+  ],
+  "author": "Aditya Pandey <aditya060806@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aditya060806/WebView.git"
+  },
+  "homepage": "https://github.com/Aditya060806/WebView#readme",
+  "bugs": {
+    "url": "https://github.com/Aditya060806/WebView/issues"
+  },
+  "dependencies": {
+    "playwright": "^1.50.0"
+  }
+}
