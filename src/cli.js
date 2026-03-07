@@ -17,8 +17,9 @@ function parseArgs() {
     interactive: false,
     json: false,
     serve: false,
-    cols: 100,
-    port: 3000,
+    cols: null,
+    port: null,
+    timeout: null,
     help: false
   };
 
@@ -57,6 +58,11 @@ function parseArgs() {
       case '-p':
         options.port = parseInt(args[++i]) || 3000;
         break;
+
+      case '--timeout':
+      case '-t':
+        options.timeout = parseInt(args[++i]) || 30000;
+        break;
         
       case '--help':
       case '-h':
@@ -70,6 +76,11 @@ function parseArgs() {
         break;
     }
   }
+
+  // Environment variable fallbacks — CLI flags take priority
+  if (options.port === null) options.port = parseInt(process.env.WEBVIEW_PORT) || 3000;
+  if (options.cols === null) options.cols = parseInt(process.env.WEBVIEW_COLS) || 100;
+  if (options.timeout === null) options.timeout = parseInt(process.env.WEBVIEW_TIMEOUT) || 30000;
 
   return options;
 }
@@ -89,10 +100,18 @@ OPTIONS:
   --cols, -c <number>                Grid width in characters (default: 100)
   --rows, -r <number>                (deprecated, height is dynamic)
   --port, -p <number>                Server port (default: 3000)
+  --timeout, -t <ms>                 Request timeout in ms (default: 30000)
   --interactive, -i                  Interactive REPL mode
   --json, -j                         JSON output format
   --serve, -s                        Start HTTP server
   --help, -h                         Show this help message
+
+ENVIRONMENT VARIABLES:
+  WEBVIEW_PORT                       Server port (overridden by --port)
+  WEBVIEW_COLS                       Grid width in characters (overridden by --cols)
+  WEBVIEW_TIMEOUT                    Request timeout in ms (overridden by --timeout)
+  WEBVIEW_API_KEY                    Require this key on all HTTP requests
+  WEBVIEW_CORS_ORIGIN                Allowed CORS origin for the HTTP server (default: *)
 
 EXAMPLES:
   webview https://example.com
@@ -369,19 +388,24 @@ async function serve(options) {
   
   const server = createServer({
     cols: options.cols,
-
+    timeout: options.timeout,
   });
   
   server.listen(options.port, () => {
     console.log(`WebView server running at http://localhost:${options.port}`);
     console.log(`\\nAPI Endpoints:`);
-    console.log(`  POST /navigate   - Navigate to URL`);
-    console.log(`  POST /click      - Click element`);
-    console.log(`  POST /type       - Type text`);
-    console.log(`  POST /scroll     - Scroll page`);
-    console.log(`  POST /select     - Select dropdown option`);
-    console.log(`  GET  /snapshot   - Get current state`);
-    console.log(`  GET  /health     - Health check`);
+    console.log(`  POST /navigate     - Navigate to URL`);
+    console.log(`  POST /click        - Click element`);
+    console.log(`  POST /type         - Type text`);
+    console.log(`  POST /scroll       - Scroll page`);
+    console.log(`  POST /select       - Select dropdown option`);
+    console.log(`  POST /press        - Press keyboard key`);
+    console.log(`  POST /waitFor      - Wait for selector/text/URL`);
+    console.log(`  POST /assertField  - Validate field value`);
+    console.log(`  POST /saveState    - Save browser storage state`);
+    console.log(`  POST /loadState    - Load browser storage state`);
+    console.log(`  GET  /snapshot     - Get current state`);
+    console.log(`  GET  /health       - Health check`);
   });
 }
 
