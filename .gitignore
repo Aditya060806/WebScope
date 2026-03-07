@@ -32,6 +32,8 @@
 *.pid
 *.pid.lock
 *.png
+# Allow logo images in public/
+!public/*.png
 *.seed
 *.tgz
 .DS_Store
