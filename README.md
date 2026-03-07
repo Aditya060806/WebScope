@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🌐 WebScope
+# WebScope
 
 ### Give your AI agent eyes — without the vision model.
 
@@ -11,7 +11,7 @@ Full JavaScript execution. Spatial layout preserved. Every interactive element a
 [![npm version](https://img.shields.io/npm/v/webscope)](https://www.npmjs.com/package/webscope)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-[📄 Docs](https://github.com/Aditya060806/WebScope) · [📦 npm](https://www.npmjs.com/package/webscope) · [🐙 GitHub](https://github.com/Aditya060806/WebScope)
+[Docs](https://github.com/Aditya060806/WebScope) · [npm](https://www.npmjs.com/package/webscope) · [GitHub](https://github.com/Aditya060806/WebScope)
 
 </div>
 
@@ -21,12 +21,12 @@ Full JavaScript execution. Spatial layout preserved. Every interactive element a
 
 Every existing approach to giving LLMs web access has a tradeoff that hurts:
 
-| Approach | Size | Requires | Speed | Spatial Layout |
-|----------|------|----------|-------|----------------|
-| Screenshot + Vision | ~1MB | Vision model ($$$) | Slow | Pixel-level |
-| Accessibility Tree | ~5KB | Nothing | Fast | ❌ Lost |
-| Raw HTML | ~100KB+ | Nothing | Fast | ❌ Lost |
-| **WebScope** | **~2-5KB** | **Nothing** | **Fast** | **✅ Preserved** |
+| Approach | Payload Size | External Dependency | Latency | Layout Fidelity | Token Cost |
+|----------|-------------|---------------------|---------|-----------------|------------|
+| Screenshot + Vision | ~1 MB | Vision model | High | Pixel-level | ~1,000+ |
+| Accessibility Tree | ~5 KB | None | Low | None | ~50–200 |
+| Raw HTML | ~100 KB+ | None | Low | None | ~2,000+ |
+| **WebScope** | **~2–5 KB** | **None** | **Low** | **Spatial** | **~50–150** |
 
 Screenshots are bulky and need expensive vision models to interpret. Accessibility trees and raw HTML are fast but throw away *where* things are on the page — layout, proximity, visual grouping. WebScope keeps the spatial structure intact, in a format that's native to how LLMs already think: **text**.
 
@@ -75,7 +75,7 @@ That's roughly **500 bytes**. Your LLM reads this, understands the layout, and s
 
 WebScope slots into whatever stack you're already using.
 
-### 🔌 MCP Server — Claude Desktop, Cursor, Windsurf, Cline
+### MCP Server — Claude Desktop, Cursor, Windsurf, Cline
 
 The zero-config path. Install once, and any MCP-compatible client gets full web browsing.
 
@@ -119,7 +119,7 @@ Now just ask your agent: *"Go to Hacker News and summarize the top posts about A
 
 ---
 
-### 🛠️ OpenAI / Anthropic Function Calling
+### OpenAI / Anthropic Function Calling
 
 Ready-made tool definitions you can plug directly into any function-calling model. See [`tools/tool_definitions.json`](tools/tool_definitions.json).
 
@@ -146,7 +146,7 @@ response = openai.chat.completions.create(
 
 ---
 
-### 🦜 LangChain
+### LangChain
 
 ```python
 from tools.langchain import get_webscope_tools
@@ -161,7 +161,7 @@ agent.run("Find the top story on Hacker News")
 
 ---
 
-### 🚢 CrewAI
+### CrewAI
 
 ```python
 from tools.crewai import WebScopeBrowseTool, WebScopeClickTool, WebScopeTypeTool
@@ -176,7 +176,7 @@ researcher = Agent(
 
 ---
 
-### 🌐 HTTP API
+### HTTP API
 
 Spin up the REST server and call it from anything — Python, curl, your own orchestrator.
 
@@ -205,7 +205,7 @@ curl -X POST http://localhost:3000/loadState -d '{"path": "/tmp/state.json"}'
 
 ---
 
-### 📦 Node.js Library
+### Node.js Library
 
 Use it directly in your own code — no server required.
 
@@ -239,13 +239,13 @@ await browser.close();
 
 Everything can be configured via CLI flags or environment variables. CLI flags always take priority.
 
-| Flag | Env Variable | Default | Description |
-|------|-------------|---------|-------------|
-| `--port, -p` | `WEBSCOPE_PORT` | `3000` | HTTP server port |
-| `--cols, -c` | `WEBSCOPE_COLS` | `100` | Grid width in characters |
-| `--timeout, -t` | `WEBSCOPE_TIMEOUT` | `30000` | Request timeout (ms) |
-| — | `WEBSCOPE_API_KEY` | *(none)* | Require this API key on all HTTP requests |
-| — | `WEBSCOPE_CORS_ORIGIN` | `*` | Allowed CORS origin (`*` = open) |
+| Flag | Environment Variable | Default | Type | Description |
+|------|---------------------|---------|------|-------------|
+| `--port, -p` | `WEBSCOPE_PORT` | `3000` | `int` | HTTP server port |
+| `--cols, -c` | `WEBSCOPE_COLS` | `100` | `int` | Grid width in characters |
+| `--timeout, -t` | `WEBSCOPE_TIMEOUT` | `30000` | `int` | Navigation timeout in milliseconds |
+| — | `WEBSCOPE_API_KEY` | — | `string` | API key required on all HTTP requests |
+| — | `WEBSCOPE_CORS_ORIGIN` | `*` | `string` | Allowed CORS origin |
 
 ---
 
@@ -253,18 +253,18 @@ Everything can be configured via CLI flags or environment variables. CLI flags a
 
 Each element type has a consistent visual representation in the text grid:
 
-| Element | Rendering | Interaction |
-|---------|-----------|-------------|
-| Links | `[ref]link text` | `click(ref)` |
-| Buttons | `[ref button text]` | `click(ref)` |
-| Text inputs | `[ref:placeholder____]` | `type(ref, "text")` |
-| Checkboxes | `[ref:X]` / `[ref: ]` | `click(ref)` to toggle |
-| Radio buttons | `[ref:●]` / `[ref:○]` | `click(ref)` |
-| Dropdowns | `[ref:▼ Selected]` | `select(ref, "value")` |
-| File inputs | `[ref:📎 Choose file]` | `upload(ref, "/path")` |
-| Headings | `═══ HEADING ═══` | — |
-| Separators | `────────────────` | — |
-| List items | `• Item text` | — |
+| Element | Grid Notation | Agent Action |
+|---------|--------------|---------------|
+| Link | `[ref]link text` | `click(ref)` |
+| Button | `[ref button text]` | `click(ref)` |
+| Text input | `[ref:placeholder____]` | `type(ref, "text")` |
+| Checkbox | `[ref:X]` / `[ref: ]` | `click(ref)` |
+| Radio button | `[ref:●]` / `[ref:○]` | `click(ref)` |
+| Dropdown | `[ref:▼ Selected]` | `select(ref, "value")` |
+| File input | `[ref: Choose file]` | `upload(ref, "/path")` |
+| Heading | `═══ HEADING ═══` | Read-only |
+| Separator | `────────────────` | Read-only |
+| List item | `• Item text` | Read-only |
 
 ---
 
@@ -298,15 +298,15 @@ The pipeline is straightforward:
 
 Selectors need to survive between snapshots — if the DOM shifts slightly, your agent shouldn't lose track of the submit button. WebScope builds resilient CSS selectors with this priority:
 
-| Priority | Strategy | Example |
-|----------|----------|---------|
-| 1 | `#id` | `#email` |
-| 2 | `[data-testid]` | `[data-testid="submit-btn"]` |
-| 3 | `[aria-label]` | `input[aria-label="Search"]` |
-| 4 | `[role]` (if unique) | `[role="navigation"]` |
-| 5 | `[name]` | `input[name="email"]` |
-| 6 | `a[href]` (if unique) | `a[href="/about"]` |
-| 7 | `nth-child` (fallback) | `div > a:nth-child(3)` |
+| Priority | Strategy | Example | Stability |
+|:--------:|----------|---------|:---------:|
+| 1 | `#id` | `#email` | Highest |
+| 2 | `[data-testid]` | `[data-testid="submit-btn"]` | High |
+| 3 | `[aria-label]` | `input[aria-label="Search"]` | High |
+| 4 | `[role]` | `[role="navigation"]` | Medium |
+| 5 | `[name]` | `input[name="email"]` | Medium |
+| 6 | `a[href]` | `a[href="/about"]` | Medium |
+| 7 | `nth-child` | `div > a:nth-child(3)` | Low |
 
 This stability is what makes multi-step workflows reliable — your agent can fill a form across several page transitions without selectors breaking between steps.
 
@@ -349,18 +349,18 @@ All HTTP errors return a structured JSON response with a machine-readable code:
 { "error": "URL scheme \"file:\" is not allowed", "code": "INVALID_URL_SCHEME" }
 ```
 
-| Code | Status | Meaning |
-|------|--------|---------|
-| `MISSING_PARAM` | 400 | A required field is missing from the request body |
-| `INVALID_URL` | 400 | The URL could not be parsed |
-| `INVALID_URL_SCHEME` | 400 | Blocked scheme (`file:`, `javascript:`, `data:`, etc.) |
-| `INVALID_JSON` | 400 | Request body is not valid JSON |
-| `BROWSER_NOT_READY` | 400 | No page loaded yet — call `/navigate` first |
-| `BODY_TOO_LARGE` | 413 | Request body exceeds 1 MB |
-| `UNAUTHORIZED` | 401 | Missing or invalid API key |
-| `NOT_FOUND` | 404 | Unknown endpoint |
-| `METHOD_NOT_ALLOWED` | 405 | Wrong HTTP method for this endpoint |
-| `INTERNAL_ERROR` | 500 | Something unexpected went wrong |
+| Code | HTTP Status | Description |
+|------|:-----------:|-------------|
+| `MISSING_PARAM` | `400` | Required field missing from the request body |
+| `INVALID_URL` | `400` | URL could not be parsed |
+| `INVALID_URL_SCHEME` | `400` | Blocked scheme (`file:`, `javascript:`, `data:`) |
+| `INVALID_JSON` | `400` | Request body is not valid JSON |
+| `BROWSER_NOT_READY` | `400` | No page loaded — call `/navigate` first |
+| `BODY_TOO_LARGE` | `413` | Request body exceeds 1 MB |
+| `UNAUTHORIZED` | `401` | Missing or invalid API key |
+| `NOT_FOUND` | `404` | Unknown endpoint |
+| `METHOD_NOT_ALLOWED` | `405` | Incorrect HTTP method for this endpoint |
+| `INTERNAL_ERROR` | `500` | Unexpected server error |
 
 ---
 
