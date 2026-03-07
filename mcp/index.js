@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * WebView MCP Server
+ * WebScope MCP Server
  *
  * Model Context Protocol server that gives any MCP client
  * (Claude Desktop, Cursor, Windsurf, Cline, etc.)
@@ -14,7 +14,7 @@ const { AgentBrowser } = require('../src/browser');
 const { ensureBrowser } = require('../src/ensure-browser');
 
 const SERVER_INFO = {
-  name: 'webview',
+  name: 'webscope',
   version: '0.3.0',
 };
 
@@ -22,7 +22,7 @@ const SESSION_NOTE = 'Optional session_id to isolate state across flows. Default
 
 const TOOLS = [
   {
-    name: 'webview_navigate',
+    name: 'webscope_navigate',
     description: 'Navigate to a URL and render the page as a structured text grid. Interactive elements are annotated with [ref] numbers for clicking/typing. Returns the text grid view, element map, and page metadata. Use this as your primary way to view web pages — no screenshots or vision model needed.',
     inputSchema: {
       type: 'object',
@@ -37,7 +37,7 @@ const TOOLS = [
     },
   },
   {
-    name: 'webview_click',
+    name: 'webscope_click',
     description: 'Click an interactive element by its reference number. Returns the updated text grid after the click (page may navigate or update).',
     inputSchema: {
       type: 'object',
@@ -51,7 +51,7 @@ const TOOLS = [
     },
   },
   {
-    name: 'webview_type',
+    name: 'webscope_type',
     description: 'Type text into an input field by its reference number. Clears existing content and types the new text. Returns the updated text grid.',
     inputSchema: {
       type: 'object',
@@ -66,7 +66,7 @@ const TOOLS = [
     },
   },
   {
-    name: 'webview_select',
+    name: 'webscope_select',
     description: 'Select an option from a dropdown/select element by its reference number.',
     inputSchema: {
       type: 'object',
@@ -81,7 +81,7 @@ const TOOLS = [
     },
   },
   {
-    name: 'webview_scroll',
+    name: 'webscope_scroll',
     description: 'Scroll the page up or down. Returns the updated text grid showing the new viewport position.',
     inputSchema: {
       type: 'object',
@@ -94,7 +94,7 @@ const TOOLS = [
     },
   },
   {
-    name: 'webview_snapshot',
+    name: 'webscope_snapshot',
     description: 'Re-render the current page as a text grid without navigating. Useful after waiting for dynamic content to load.',
     inputSchema: {
       type: 'object',
@@ -104,7 +104,7 @@ const TOOLS = [
     },
   },
   {
-    name: 'webview_press',
+    name: 'webscope_press',
     description: 'Press a keyboard key (e.g., Enter, Tab, Escape, ArrowDown). Returns the updated text grid.',
     inputSchema: {
       type: 'object',
@@ -118,15 +118,15 @@ const TOOLS = [
     },
   },
   {
-    name: 'webview_session_list',
-    description: 'List active webview sessions and basic metadata (url, age).',
+    name: 'webscope_session_list',
+    description: 'List active webscope sessions and basic metadata (url, age).',
     inputSchema: {
       type: 'object',
       properties: {},
     },
   },
   {
-    name: 'webview_session_close',
+    name: 'webscope_session_close',
     description: 'Close one session by session_id, or all sessions when all=true.',
     inputSchema: {
       type: 'object',
@@ -137,7 +137,7 @@ const TOOLS = [
     },
   },
   {
-    name: 'webview_upload',
+    name: 'webscope_upload',
     description: 'Upload a file to a file input element by its reference number.',
     inputSchema: {
       type: 'object',
@@ -152,7 +152,7 @@ const TOOLS = [
     },
   },
   {
-    name: 'webview_storage_save',
+    name: 'webscope_storage_save',
     description: 'Save current browser storage state (cookies/localStorage/sessionStorage) to disk for later restore.',
     inputSchema: {
       type: 'object',
@@ -164,7 +164,7 @@ const TOOLS = [
     },
   },
   {
-    name: 'webview_storage_load',
+    name: 'webscope_storage_load',
     description: 'Load storage state from disk into a fresh browser context.',
     inputSchema: {
       type: 'object',
@@ -177,7 +177,7 @@ const TOOLS = [
     },
   },
   {
-    name: 'webview_wait_for',
+    name: 'webscope_wait_for',
     description: 'Wait for UI state in multi-step flows. Supports selector, text, and url_includes checks.',
     inputSchema: {
       type: 'object',
@@ -195,7 +195,7 @@ const TOOLS = [
     },
   },
   {
-    name: 'webview_assert_field',
+    name: 'webscope_assert_field',
     description: 'Assert a field value/text by element ref. Useful in multi-step forms before submitting.',
     inputSchema: {
       type: 'object',
@@ -286,12 +286,12 @@ async function closeSession({ session_id, all } = {}) {
 // ─── Tool Execution ──────────────────────────────────────────────────────────
 
 async function executeTool(name, args = {}) {
-  if (name === 'webview_session_list') {
+  if (name === 'webscope_session_list') {
     const active = await listSessions();
     return JSON.stringify({ count: active.length, sessions: active }, null, 2);
   }
 
-  if (name === 'webview_session_close') {
+  if (name === 'webscope_session_close') {
     const out = await closeSession({ session_id: args.session_id, all: args.all });
     return JSON.stringify(out, null, 2);
   }
@@ -299,47 +299,47 @@ async function executeTool(name, args = {}) {
   const { browser: b, sessionId } = await getBrowser(args);
 
   switch (name) {
-    case 'webview_navigate': {
+    case 'webscope_navigate': {
       const result = await b.navigate(args.url, retryOptions(args));
       return formatResult(result);
     }
-    case 'webview_click': {
+    case 'webscope_click': {
       const result = await b.click(args.ref, retryOptions(args));
       return formatResult(result);
     }
-    case 'webview_type': {
+    case 'webscope_type': {
       const result = await b.type(args.ref, args.text, retryOptions(args));
       return formatResult(result);
     }
-    case 'webview_select': {
+    case 'webscope_select': {
       const result = await b.select(args.ref, args.value, retryOptions(args));
       return formatResult(result);
     }
-    case 'webview_scroll': {
+    case 'webscope_scroll': {
       const result = await b.scroll(args.direction, args.amount || 1);
       return formatResult(result);
     }
-    case 'webview_snapshot': {
+    case 'webscope_snapshot': {
       const result = await b.snapshot();
       return formatResult(result);
     }
-    case 'webview_press': {
+    case 'webscope_press': {
       const result = await b.press(args.key, retryOptions(args));
       return formatResult(result);
     }
-    case 'webview_upload': {
+    case 'webscope_upload': {
       const result = await b.upload(args.ref, args.path, retryOptions(args));
       return formatResult(result);
     }
-    case 'webview_storage_save': {
+    case 'webscope_storage_save': {
       const out = await b.saveStorageState(args.path);
       return `Saved storage state for session "${sessionId}" to ${out.path}`;
     }
-    case 'webview_storage_load': {
+    case 'webscope_storage_load': {
       const out = await b.loadStorageState(args.path);
       return `Loaded storage state for session "${sessionId}" from ${out.path}`;
     }
-    case 'webview_wait_for': {
+    case 'webscope_wait_for': {
       const result = await b.waitFor({
         selector: args.selector,
         text: args.text,
@@ -351,7 +351,7 @@ async function executeTool(name, args = {}) {
       });
       return formatResult(result);
     }
-    case 'webview_assert_field': {
+    case 'webscope_assert_field': {
       const out = await b.assertField(args.ref, args.expected, {
         comparator: args.comparator,
         attribute: args.attribute,

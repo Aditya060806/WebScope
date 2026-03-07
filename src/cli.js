@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * WebView CLI - Command-line interface for text-grid web rendering
+ * WebScope CLI - Command-line interface for text-grid web rendering
  */
 
 const { AgentBrowser } = require('./browser');
@@ -78,9 +78,9 @@ function parseArgs() {
   }
 
   // Environment variable fallbacks — CLI flags take priority
-  if (options.port === null) options.port = parseInt(process.env.WEBVIEW_PORT) || 3000;
-  if (options.cols === null) options.cols = parseInt(process.env.WEBVIEW_COLS) || 100;
-  if (options.timeout === null) options.timeout = parseInt(process.env.WEBVIEW_TIMEOUT) || 30000;
+  if (options.port === null) options.port = parseInt(process.env.WEBSCOPE_PORT) || 3000;
+  if (options.cols === null) options.cols = parseInt(process.env.WEBSCOPE_COLS) || 100;
+  if (options.timeout === null) options.timeout = parseInt(process.env.WEBSCOPE_TIMEOUT) || 30000;
 
   return options;
 }
@@ -88,13 +88,13 @@ function parseArgs() {
 // Show help message
 function showHelp() {
   console.log(`
-WebView - Text-grid web renderer for AI agents
+WebScope - Text-grid web renderer for AI agents
 
 USAGE:
-  webview <url>                    Render page and print to console
-  webview --interactive <url>      Start interactive REPL mode
-  webview --json <url>             Output as JSON (view + elements)
-  webview --serve                  Start HTTP API server
+  webscope <url>                    Render page and print to console
+  webscope --interactive <url>      Start interactive REPL mode
+  webscope --json <url>             Output as JSON (view + elements)
+  webscope --serve                  Start HTTP API server
 
 OPTIONS:
   --cols, -c <number>                Grid width in characters (default: 100)
@@ -107,17 +107,17 @@ OPTIONS:
   --help, -h                         Show this help message
 
 ENVIRONMENT VARIABLES:
-  WEBVIEW_PORT                       Server port (overridden by --port)
-  WEBVIEW_COLS                       Grid width in characters (overridden by --cols)
-  WEBVIEW_TIMEOUT                    Request timeout in ms (overridden by --timeout)
-  WEBVIEW_API_KEY                    Require this key on all HTTP requests
-  WEBVIEW_CORS_ORIGIN                Allowed CORS origin for the HTTP server (default: *)
+  WEBSCOPE_PORT                       Server port (overridden by --port)
+  WEBSCOPE_COLS                       Grid width in characters (overridden by --cols)
+  WEBSCOPE_TIMEOUT                    Request timeout in ms (overridden by --timeout)
+  WEBSCOPE_API_KEY                    Require this key on all HTTP requests
+  WEBSCOPE_CORS_ORIGIN                Allowed CORS origin for the HTTP server (default: *)
 
 EXAMPLES:
-  webview https://example.com
-  webview --interactive https://github.com
-  webview --json --cols 120 https://news.ycombinator.com
-  webview --serve --port 8080
+  webscope https://example.com
+  webscope --interactive https://github.com
+  webscope --json --cols 120 https://news.ycombinator.com
+  webscope --serve --port 8080
 
 INTERACTIVE COMMANDS:
   click <ref>                        Click element by reference number
@@ -184,7 +184,7 @@ async function interactive(url, options) {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    prompt: 'webview> '
+    prompt: 'webscope> '
   });
 
   let result = null;
@@ -384,7 +384,7 @@ Interactive Commands:
 
 // Start HTTP server
 async function serve(options) {
-  console.log(`Starting WebView HTTP server on port ${options.port}...`);
+  console.log(`Starting WebScope HTTP server on port ${options.port}...`);
   
   const server = createServer({
     cols: options.cols,
@@ -392,7 +392,7 @@ async function serve(options) {
   });
   
   server.listen(options.port, () => {
-    console.log(`WebView server running at http://localhost:${options.port}`);
+    console.log(`WebScope server running at http://localhost:${options.port}`);
     console.log(`\\nAPI Endpoints:`);
     console.log(`  POST /navigate     - Navigate to URL`);
     console.log(`  POST /click        - Click element`);

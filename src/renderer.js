@@ -1,5 +1,5 @@
 /**
- * WebView Text Grid Renderer
+ * WebScope Text Grid Renderer
  * 
  * Converts a rendered web page into a structured text grid with
  * interactive element references. No screenshots, no vision models.

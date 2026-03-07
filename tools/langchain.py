@@ -1,17 +1,17 @@
 """
-WebView LangChain Tool Integration
+WebScope LangChain Tool Integration
 
-Wraps the WebView HTTP API as LangChain tools for use in agents and chains.
+Wraps the WebScope HTTP API as LangChain tools for use in agents and chains.
 
 Usage:
-    from webview_langchain import get_webview_tools
+    from webscope_langchain import get_webscope_tools
 
-    tools = get_webview_tools()  # Returns list of LangChain tools
+    tools = get_webscope_tools()  # Returns list of LangChain tools
     agent = initialize_agent(tools, llm, agent="zero-shot-react-description")
 
 Requires:
     pip install langchain requests
-    webview --serve 3000  (run the WebView server)
+    webscope --serve 3000  (run the WebScope server)
 """
 
 import json
@@ -28,8 +28,8 @@ except ImportError:
 DEFAULT_BASE_URL = "http://localhost:3000"
 
 
-class WebViewClient:
-    """HTTP client for the WebView server."""
+class WebScopeClient:
+    """HTTP client for the WebScope server."""
 
     def __init__(self, base_url: str = DEFAULT_BASE_URL):
         self.base_url = base_url.rstrip("/")
@@ -105,51 +105,51 @@ class ScrollInput(BaseModel):
 
 # ─── Tool Factory ─────────────────────────────────────────────────────────────
 
-def get_webview_tools(base_url: str = DEFAULT_BASE_URL) -> list:
+def get_webscope_tools(base_url: str = DEFAULT_BASE_URL) -> list:
     """
-    Create LangChain tools for WebView browser interaction.
+    Create LangChain tools for WebScope browser interaction.
 
     Args:
-        base_url: URL of the running WebView HTTP server (default: http://localhost:3000)
+        base_url: URL of the running WebScope HTTP server (default: http://localhost:3000)
 
     Returns:
         List of LangChain StructuredTool instances
     """
-    client = WebViewClient(base_url)
+    client = WebScopeClient(base_url)
 
     return [
         StructuredTool.from_function(
             func=lambda url: client.navigate(url),
-            name="webview_navigate",
+            name="webscope_navigate",
             description="Navigate to a URL and render it as a text grid. Interactive elements are marked with [ref] numbers. Returns ~2-5KB of text instead of a 1MB screenshot. No vision model needed.",
             args_schema=NavigateInput,
         ),
         StructuredTool.from_function(
             func=lambda ref: client.click(ref),
-            name="webview_click",
+            name="webscope_click",
             description="Click an interactive element by its [ref] number from the text grid.",
             args_schema=ClickInput,
         ),
         StructuredTool.from_function(
             func=lambda ref, text: client.type_text(ref, text),
-            name="webview_type",
+            name="webscope_type",
             description="Type text into an input field by its [ref] number. Replaces existing content.",
             args_schema=TypeInput,
         ),
         StructuredTool.from_function(
             func=lambda ref, value: client.select(ref, value),
-            name="webview_select",
+            name="webscope_select",
             description="Select an option from a dropdown by its [ref] number.",
             args_schema=SelectInput,
         ),
         StructuredTool.from_function(
             func=lambda direction, amount=1: client.scroll(direction, amount),
-            name="webview_scroll",
+            name="webscope_scroll",
             description="Scroll the page up/down/top. Returns updated text grid.",
             args_schema=ScrollInput,
         ),
         Tool(
-            name="webview_snapshot",
+            name="webscope_snapshot",
             func=lambda _="": client.snapshot(),
             description="Re-render the current page as text. Use after waiting for dynamic content to load.",
         ),
@@ -161,5 +161,5 @@ def get_webview_tools(base_url: str = DEFAULT_BASE_URL) -> list:
 if __name__ == "__main__":
     import sys
     url = sys.argv[1] if len(sys.argv) > 1 else "https://example.com"
-    client = WebViewClient()
+    client = WebScopeClient()
     print(client.navigate(url))

@@ -1,22 +1,22 @@
 /**
- * WebView HTTP Server - REST API for web rendering and interaction
+ * WebScope HTTP Server - REST API for web rendering and interaction
  */
 
 const http = require('http');
 const url = require('url');
 const { AgentBrowser } = require('./browser');
 
-class WebViewServer {
+class WebScopeServer {
   constructor(options = {}) {
     this.options = {
-      cols: options.cols || parseInt(process.env.WEBVIEW_COLS) || 100,
+      cols: options.cols || parseInt(process.env.WEBSCOPE_COLS) || 100,
       // rows is deprecated — height is dynamic
-      timeout: options.timeout || parseInt(process.env.WEBVIEW_TIMEOUT) || 30000,
+      timeout: options.timeout || parseInt(process.env.WEBSCOPE_TIMEOUT) || 30000,
       ...options
     };
 
-    this.apiKey = process.env.WEBVIEW_API_KEY || null;
-    this.corsOrigin = process.env.WEBVIEW_CORS_ORIGIN || '*';
+    this.apiKey = process.env.WEBSCOPE_API_KEY || null;
+    this.corsOrigin = process.env.WEBSCOPE_CORS_ORIGIN || '*';
     this.browser = null;
     this.lastActivity = Date.now();
     
@@ -655,7 +655,7 @@ class WebViewServer {
  * Create HTTP server instance
  */
 function createServer(options = {}) {
-  const server = new WebViewServer(options);
+  const server = new WebScopeServer(options);
   
   return http.createServer((req, res) => {
     server.handleRequest(req, res).catch(error => {
@@ -667,4 +667,4 @@ function createServer(options = {}) {
   });
 }
 
-module.exports = { createServer, WebViewServer };
+module.exports = { createServer, WebScopeServer };

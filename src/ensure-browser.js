@@ -56,7 +56,7 @@ async function ensureBrowser() {
   if (isInstalled()) return;
 
   log('');
-  log('⚠  Playwright Chromium is not installed — webview needs it to browse the web.');
+  log('⚠  Playwright Chromium is not installed — webscope needs it to browse the web.');
 
   if (process.stdin.isTTY) {
     const answer = await ask('   Install it now? (Y/n) ');

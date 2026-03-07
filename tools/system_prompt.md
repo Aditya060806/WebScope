@@ -1,17 +1,17 @@
-# WebView Browser
+# WebScope Browser
 
-You have access to a text-based web browser via the `webview_*` tools. Pages are rendered as structured character grids instead of screenshots.
+You have access to a text-based web browser via the `webscope_*` tools. Pages are rendered as structured character grids instead of screenshots.
 
 ## How It Works
 
-- `webview_navigate(url)` — Opens a page and returns a text grid
-- `webview_click(ref)` — Clicks element `[ref]`  
-- `webview_type(ref, text)` — Types into input `[ref]`
-- `webview_select(ref, value)` — Selects dropdown option
-- `webview_scroll(direction)` — Scrolls up/down/top
-- `webview_snapshot()` — Re-renders current page
-- `webview_press(key)` — Presses a key (Enter, Tab, etc.)
-- `webview_upload(ref, path)` — Uploads a file to input
+- `webscope_navigate(url)` — Opens a page and returns a text grid
+- `webscope_click(ref)` — Clicks element `[ref]`  
+- `webscope_type(ref, text)` — Types into input `[ref]`
+- `webscope_select(ref, value)` — Selects dropdown option
+- `webscope_scroll(direction)` — Scrolls up/down/top
+- `webscope_snapshot()` — Re-renders current page
+- `webscope_press(key)` — Presses a key (Enter, Tab, etc.)
+- `webscope_upload(ref, path)` — Uploads a file to input
 
 ## Reading the Grid
 

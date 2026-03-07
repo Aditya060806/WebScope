@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WebView — See the web without screenshots</title>
+  <title>WebScope — See the web without screenshots</title>
   <meta name="description" content="A text-grid web renderer for AI agents. 500x fewer tokens than screenshots. No vision model needed.">
-  <meta property="og:title" content="WebView — Text-grid browser for AI agents">
+  <meta property="og:title" content="WebScope — Text-grid browser for AI agents">
   <meta property="og:description" content="Render web pages as structured text grids. 2-5KB instead of 1MB screenshots. No vision model needed.">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://github.com/Aditya060806/WebView">
+  <meta property="og:url" content="https://github.com/Aditya060806/WebScope">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -514,25 +514,25 @@
     <div class="badge">⚡ Open Source &middot; MIT License</div>
     <h1>See the web in <span class="highlight">plain text</span></h1>
     <p class="subtitle">
-      WebView renders web pages as structured text grids for AI agents. 
+      WebScope renders web pages as structured text grids for AI agents. 
       2-5KB instead of 1MB screenshots. No vision model needed.
     </p>
     <div class="hero-actions">
-      <a href="https://github.com/Aditya060806/WebView" class="btn btn-primary">
+      <a href="https://github.com/Aditya060806/WebScope" class="btn btn-primary">
         ⭐ View on GitHub
       </a>
       <a href="#examples" class="btn btn-secondary">See Examples</a>
     </div>
     <div class="install-bar">
       <span class="prompt">$</span>
-      <code>npm install -g webview</code>
-      <button class="copy-btn" onclick="navigator.clipboard.writeText('npm install -g webview');this.textContent='✓';setTimeout(()=>this.textContent='📋',1500)" title="Copy">📋</button>
+      <code>npm install -g webscope</code>
+      <button class="copy-btn" onclick="navigator.clipboard.writeText('npm install -g webscope');this.textContent='✓';setTimeout(()=>this.textContent='📋',1500)" title="Copy">📋</button>
     </div>
   </section>
 
   <!-- Comparison -->
   <section class="comparison">
-    <h2>Screenshot vs WebView</h2>
+    <h2>Screenshot vs WebScope</h2>
     <div class="compare-grid">
       <div class="compare-card bad">
         <div class="compare-header">
@@ -551,12 +551,12 @@
       </div>
       <div class="compare-card good">
         <div class="compare-header">
-          <span>✅ WebView: Structured Text Grid</span>
+          <span>✅ WebScope: Structured Text Grid</span>
           <span class="size-tag">~1.8 KB</span>
         </div>
         <div class="compare-body">[0]Hacker News [1]new | [2]past | [3]comments | [4]ask | [5]show | [6]jobs | [7]submit      [8]login
 
- 1. [9]Show HN: WebView – text-grid browser
+ 1. [9]Show HN: WebScope – text-grid browser
     for AI agents (github.com)
     142 pts by adityapandey 3h ago | [10]89 comments
  2. [11]Why LLMs don't need screenshots
@@ -600,7 +600,7 @@
         <div class="step-num">2</div>
         <div class="step-content">
           <h3>Extract positions &amp; semantics</h3>
-          <p>WebView reads every visible element's bounding rect, text content, and interactivity. Links, buttons, inputs — all identified.</p>
+          <p>WebScope reads every visible element's bounding rect, text content, and interactivity. Links, buttons, inputs — all identified.</p>
         </div>
       </div>
       <div class="step">
@@ -632,23 +632,23 @@
     </div>
 
     <div class="code-block active" id="tab-cli"><span class="comment"># Render any page</span>
-<span class="prompt">$ </span>webview https://news.ycombinator.com
+<span class="prompt">$ </span>webscope https://news.ycombinator.com
 
 <span class="comment"># Interactive mode — browse with commands</span>
-<span class="prompt">$ </span>webview --interactive https://github.com
-<span class="output">webview> click 3
-webview> type 7 search query
-webview> scroll down
-webview> refs</span>
+<span class="prompt">$ </span>webscope --interactive https://github.com
+<span class="output">webscope> click 3
+webscope> type 7 search query
+webscope> scroll down
+webscope> refs</span>
 
 <span class="comment"># JSON output for piping to agents</span>
-<span class="prompt">$ </span>webview --json https://example.com
+<span class="prompt">$ </span>webscope --json https://example.com
 
 <span class="comment"># Custom grid size</span>
-<span class="prompt">$ </span>webview --cols 80 --rows 24 https://example.com</div>
+<span class="prompt">$ </span>webscope --cols 80 --rows 24 https://example.com</div>
 
     <div class="code-block" id="tab-api"><span class="comment"># Start the server</span>
-<span class="prompt">$ </span>webview --serve 3000
+<span class="prompt">$ </span>webscope --serve 3000
 
 <span class="comment"># Navigate to a page</span>
 <span class="prompt">$ </span>curl -X POST http://localhost:3000/navigate \
@@ -663,7 +663,7 @@ webview> refs</span>
 <span class="prompt">$ </span>curl -X POST http://localhost:3000/type \
   -d <span class="string">'{"ref": 7, "text": "hello world"}'</span></div>
 
-    <div class="code-block" id="tab-node"><span class="keyword">const</span> { AgentBrowser } = <span class="fn">require</span>(<span class="string">'webview'</span>);
+    <div class="code-block" id="tab-node"><span class="keyword">const</span> { AgentBrowser } = <span class="fn">require</span>(<span class="string">'webscope'</span>);
 
 <span class="keyword">const</span> browser = <span class="keyword">new</span> <span class="fn">AgentBrowser</span>({ cols: 120 });
 
@@ -743,9 +743,9 @@ console.<span class="fn">log</span>(elements);   <span class="comment">// { 0: {
   <section class="footer">
     <p>
       Built by <a href="https://github.com/Aditya060806">Aditya Pandey</a> &middot; 
-      <a href="https://github.com/Aditya060806/WebView">GitHub</a> &middot;
+      <a href="https://github.com/Aditya060806/WebScope">GitHub</a> &middot;
       <a href="https://www.linkedin.com/in/aditya-pandey-p1002/">LinkedIn</a> &middot;
-      <a href="https://www.npmjs.com/package/webview">npm</a> &middot;
+      <a href="https://www.npmjs.com/package/webscope">npm</a> &middot;
       MIT License
     </p>
   </section>

@@ -1,17 +1,17 @@
 <div align="center">
 
-# 🌐 WebView
+# 🌐 WebScope
 
 ### Give your AI agent eyes — without the vision model.
 
-WebView turns any web page into a lightweight, structured text grid that LLMs can read, understand, and interact with — all without screenshots, vision APIs, or pixel parsing.
+WebScope turns any web page into a lightweight, structured text grid that LLMs can read, understand, and interact with — all without screenshots, vision APIs, or pixel parsing.
 
 Full JavaScript execution. Spatial layout preserved. Every interactive element annotated and clickable by reference.
 
-[![npm version](https://img.shields.io/npm/v/webview)](https://www.npmjs.com/package/webview)
+[![npm version](https://img.shields.io/npm/v/webscope)](https://www.npmjs.com/package/webscope)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-[📄 Docs](https://github.com/Aditya060806/WebView) · [📦 npm](https://www.npmjs.com/package/webview) · [🐙 GitHub](https://github.com/Aditya060806/WebView)
+[📄 Docs](https://github.com/Aditya060806/WebScope) · [📦 npm](https://www.npmjs.com/package/webscope) · [🐙 GitHub](https://github.com/Aditya060806/WebScope)
 
 </div>
 
@@ -26,16 +26,16 @@ Every existing approach to giving LLMs web access has a tradeoff that hurts:
 | Screenshot + Vision | ~1MB | Vision model ($$$) | Slow | Pixel-level |
 | Accessibility Tree | ~5KB | Nothing | Fast | ❌ Lost |
 | Raw HTML | ~100KB+ | Nothing | Fast | ❌ Lost |
-| **WebView** | **~2-5KB** | **Nothing** | **Fast** | **✅ Preserved** |
+| **WebScope** | **~2-5KB** | **Nothing** | **Fast** | **✅ Preserved** |
 
-Screenshots are bulky and need expensive vision models to interpret. Accessibility trees and raw HTML are fast but throw away *where* things are on the page — layout, proximity, visual grouping. WebView keeps the spatial structure intact, in a format that's native to how LLMs already think: **text**.
+Screenshots are bulky and need expensive vision models to interpret. Accessibility trees and raw HTML are fast but throw away *where* things are on the page — layout, proximity, visual grouping. WebScope keeps the spatial structure intact, in a format that's native to how LLMs already think: **text**.
 
 ---
 
 ## Get Started
 
 ```bash
-npm install -g webview
+npm install -g webscope
 npx playwright install chromium
 ```
 
@@ -43,13 +43,13 @@ You're ready. Try it out:
 
 ```bash
 # Render any page as a text grid
-webview https://news.ycombinator.com
+webscope https://news.ycombinator.com
 
 # Drop into interactive mode — click, type, scroll in real time
-webview --interactive https://github.com
+webscope --interactive https://github.com
 
 # Pipe structured JSON directly to your agent
-webview --json https://example.com
+webscope --json https://example.com
 ```
 
 ---
@@ -59,7 +59,7 @@ webview --json https://example.com
 ```
 [0]Hacker News [1]new | [2]past | [3]comments | [4]ask | [5]show | [6]jobs | [7]submit      [8]login
 
- 1. [9]Show HN: WebView – text-grid browser for AI agents (github.com)
+ 1. [9]Show HN: WebScope – text-grid browser for AI agents (github.com)
     142 points by adityapandey 3 hours ago | [10]89 comments
  2. [11]Why LLMs don't need screenshots to browse the web
     87 points by somebody 5 hours ago | [12]34 comments
@@ -73,16 +73,16 @@ That's roughly **500 bytes**. Your LLM reads this, understands the layout, and s
 
 ## Integrations
 
-WebView slots into whatever stack you're already using.
+WebScope slots into whatever stack you're already using.
 
 ### 🔌 MCP Server — Claude Desktop, Cursor, Windsurf, Cline
 
 The zero-config path. Install once, and any MCP-compatible client gets full web browsing.
 
 ```bash
-npm install -g webview
+npm install -g webscope
 # or run directly:
-npx webview-mcp
+npx webscope-mcp
 ```
 
 **Claude Desktop** — add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
@@ -90,8 +90,8 @@ npx webview-mcp
 ```json
 {
   "mcpServers": {
-    "webview": {
-      "command": "webview-mcp"
+    "webscope": {
+      "command": "webscope-mcp"
     }
   }
 }
@@ -102,8 +102,8 @@ npx webview-mcp
 ```json
 {
   "mcpServers": {
-    "webview": {
-      "command": "webview-mcp"
+    "webscope": {
+      "command": "webscope-mcp"
     }
   }
 }
@@ -113,9 +113,9 @@ Now just ask your agent: *"Go to Hacker News and summarize the top posts about A
 
 **What the MCP server gives you:**
 - **`session_id`** on every tool call — run isolated parallel workflows without stepping on each other
-- **`webview_storage_save` / `webview_storage_load`** — persist cookies, localStorage, and session state across runs
-- **`webview_wait_for`** — pause until a selector appears, text loads, or a URL changes (essential for SPAs)
-- **`webview_assert_field`** — guard your multi-step flows: verify field values *before* clicking submit
+- **`webscope_storage_save` / `webscope_storage_load`** — persist cookies, localStorage, and session state across runs
+- **`webscope_wait_for`** — pause until a selector appears, text loads, or a URL changes (essential for SPAs)
+- **`webscope_assert_field`** — guard your multi-step flows: verify field values *before* clicking submit
 
 ---
 
@@ -129,7 +129,7 @@ Pair it with the [system prompt](tools/system_prompt.md) so the model knows how 
 import json
 
 with open("tools/tool_definitions.json") as f:
-    webview_tools = json.load(f)["tools"]
+    webscope_tools = json.load(f)["tools"]
 
 with open("tools/system_prompt.md") as f:
     system_prompt = f.read()
@@ -140,7 +140,7 @@ response = openai.chat.completions.create(
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": "Go to example.com and click the first link"},
     ],
-    tools=webview_tools,
+    tools=webscope_tools,
 )
 ```
 
@@ -149,10 +149,10 @@ response = openai.chat.completions.create(
 ### 🦜 LangChain
 
 ```python
-from tools.langchain import get_webview_tools
+from tools.langchain import get_webscope_tools
 
-# Start the server first: webview --serve 3000
-tools = get_webview_tools(base_url="http://localhost:3000")
+# Start the server first: webscope --serve 3000
+tools = get_webscope_tools(base_url="http://localhost:3000")
 
 from langchain.agents import initialize_agent
 agent = initialize_agent(tools, llm, agent="zero-shot-react-description")
@@ -164,12 +164,12 @@ agent.run("Find the top story on Hacker News")
 ### 🚢 CrewAI
 
 ```python
-from tools.crewai import WebViewBrowseTool, WebViewClickTool, WebViewTypeTool
+from tools.crewai import WebScopeBrowseTool, WebScopeClickTool, WebScopeTypeTool
 
-# Start the server first: webview --serve 3000
+# Start the server first: webscope --serve 3000
 researcher = Agent(
     role="Web Researcher",
-    tools=[WebViewBrowseTool(), WebViewClickTool(), WebViewTypeTool()],
+    tools=[WebScopeBrowseTool(), WebScopeClickTool(), WebScopeTypeTool()],
     llm=llm,
 )
 ```
@@ -181,7 +181,7 @@ researcher = Agent(
 Spin up the REST server and call it from anything — Python, curl, your own orchestrator.
 
 ```bash
-webview --serve 3000
+webscope --serve 3000
 ```
 
 ```bash
@@ -201,7 +201,7 @@ curl -X POST http://localhost:3000/saveState -d '{"path": "/tmp/state.json"}'
 curl -X POST http://localhost:3000/loadState -d '{"path": "/tmp/state.json"}'
 ```
 
-> **Security:** Set `WEBVIEW_API_KEY` to require `Authorization: Bearer <key>` on all requests. Set `WEBVIEW_CORS_ORIGIN` to lock down cross-origin access.
+> **Security:** Set `WEBSCOPE_API_KEY` to require `Authorization: Bearer <key>` on all requests. Set `WEBSCOPE_CORS_ORIGIN` to lock down cross-origin access.
 
 ---
 
@@ -210,7 +210,7 @@ curl -X POST http://localhost:3000/loadState -d '{"path": "/tmp/state.json"}'
 Use it directly in your own code — no server required.
 
 ```javascript
-const { AgentBrowser } = require('webview');
+const { AgentBrowser } = require('webscope');
 
 const browser = new AgentBrowser({ cols: 120 });
 const { view, elements, meta } = await browser.navigate('https://example.com');
@@ -225,8 +225,8 @@ await browser.scroll('down');        // Scroll down
 await browser.press('Enter');        // Press a key
 await browser.waitFor({ selector: '.step-2.active' });
 await browser.assertField(7, 'hello', { comparator: 'equals' });
-await browser.saveStorageState('/tmp/webview-state.json');
-await browser.loadStorageState('/tmp/webview-state.json');
+await browser.saveStorageState('/tmp/webscope-state.json');
+await browser.loadStorageState('/tmp/webscope-state.json');
 await browser.query('nav a');        // CSS selector search
 await browser.screenshot();          // PNG buffer (debugging)
 console.log(browser.getCurrentUrl());
@@ -241,11 +241,11 @@ Everything can be configured via CLI flags or environment variables. CLI flags a
 
 | Flag | Env Variable | Default | Description |
 |------|-------------|---------|-------------|
-| `--port, -p` | `WEBVIEW_PORT` | `3000` | HTTP server port |
-| `--cols, -c` | `WEBVIEW_COLS` | `100` | Grid width in characters |
-| `--timeout, -t` | `WEBVIEW_TIMEOUT` | `30000` | Request timeout (ms) |
-| — | `WEBVIEW_API_KEY` | *(none)* | Require this API key on all HTTP requests |
-| — | `WEBVIEW_CORS_ORIGIN` | `*` | Allowed CORS origin (`*` = open) |
+| `--port, -p` | `WEBSCOPE_PORT` | `3000` | HTTP server port |
+| `--cols, -c` | `WEBSCOPE_COLS` | `100` | Grid width in characters |
+| `--timeout, -t` | `WEBSCOPE_TIMEOUT` | `30000` | Request timeout (ms) |
+| — | `WEBSCOPE_API_KEY` | *(none)* | Require this API key on all HTTP requests |
+| — | `WEBSCOPE_CORS_ORIGIN` | `*` | Allowed CORS origin (`*` = open) |
 
 ---
 
@@ -275,7 +275,7 @@ Each element type has a consistent visual representation in the text grid:
 │  Your Agent (any LLM)                        │
 │  "click 3" / "type 7 hello" / "scroll down"  │
 ├─────────────────────────────────────────────┤
-│  WebView                                     │
+│  WebScope                                     │
 │  Pixel positions → character grid            │
 │  Interactive elements get [ref] annotations  │
 ├─────────────────────────────────────────────┤
@@ -296,7 +296,7 @@ The pipeline is straightforward:
 
 ## Selector Strategy
 
-Selectors need to survive between snapshots — if the DOM shifts slightly, your agent shouldn't lose track of the submit button. WebView builds resilient CSS selectors with this priority:
+Selectors need to survive between snapshots — if the DOM shifts slightly, your agent shouldn't lose track of the submit button. WebScope builds resilient CSS selectors with this priority:
 
 | Priority | Strategy | Example |
 |----------|----------|---------|
@@ -314,30 +314,30 @@ This stability is what makes multi-step workflows reliable — your agent can fi
 
 ## Real-World Example: ATS Job Application
 
-Multi-step application flows (Greenhouse, Lever, etc.) are where WebView really shines. Here's how you'd automate one:
+Multi-step application flows (Greenhouse, Lever, etc.) are where WebScope really shines. Here's how you'd automate one:
 
 ```javascript
 // Open the job posting — keep a stable session throughout
-await webview_navigate({ url: 'https://job-boards.greenhouse.io/acme/jobs/123', session_id: 'apply-acme' });
+await webscope_navigate({ url: 'https://job-boards.greenhouse.io/acme/jobs/123', session_id: 'apply-acme' });
 
 // Fill out the form
-await webview_type({ ref: 12, text: 'Aditya', session_id: 'apply-acme' });
-await webview_type({ ref: 15, text: 'Pandey', session_id: 'apply-acme' });
-await webview_click({ ref: 42, session_id: 'apply-acme', retries: 3, retry_delay_ms: 400 });
+await webscope_type({ ref: 12, text: 'Aditya', session_id: 'apply-acme' });
+await webscope_type({ ref: 15, text: 'Pandey', session_id: 'apply-acme' });
+await webscope_click({ ref: 42, session_id: 'apply-acme', retries: 3, retry_delay_ms: 400 });
 
 // Wait for the next step to load before continuing
-await webview_wait_for({ selector: '#step-2.active', timeout_ms: 8000, session_id: 'apply-acme', retries: 2 });
+await webscope_wait_for({ selector: '#step-2.active', timeout_ms: 8000, session_id: 'apply-acme', retries: 2 });
 
 // Double-check a field value before submitting
-await webview_assert_field({ ref: 77, expected: 'San Francisco', comparator: 'includes', session_id: 'apply-acme' });
+await webscope_assert_field({ ref: 77, expected: 'San Francisco', comparator: 'includes', session_id: 'apply-acme' });
 
 // Save the session so you can resume later
-await webview_storage_save({ path: '/tmp/ats-state.json', session_id: 'apply-acme' });
+await webscope_storage_save({ path: '/tmp/ats-state.json', session_id: 'apply-acme' });
 ```
 
 **Handy session management:**
-- `webview_session_list` — see all active sessions
-- `webview_session_close` — tear down one or all sessions
+- `webscope_session_list` — see all active sessions
+- `webscope_session_close` — tear down one or all sessions
 
 ---
 
@@ -387,7 +387,7 @@ Test fixtures live in `test/fixtures/` — includes a comprehensive HTML form an
 ## Design Philosophy
 
 1. **Text is native to LLMs** — no vision model middleman, no base64 encoding, no token-heavy image payloads
-2. **Spatial layout matters** — a flat list of elements loses the *where;* WebView preserves it
+2. **Spatial layout matters** — a flat list of elements loses the *where;* WebScope preserves it
 3. **Cheap and fast** — 2–5 KB per render vs. 1 MB+ screenshots
 4. **Full web support** — real Chromium runs the JavaScript; SPAs, dynamic content, and auth flows all work
 5. **Interactive by design** — numbered references map directly to real DOM elements; click, type, scroll

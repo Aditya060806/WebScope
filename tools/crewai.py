@@ -1,20 +1,20 @@
 """
-WebView CrewAI Tool Integration
+WebScope CrewAI Tool Integration
 
-Wraps WebView as CrewAI-compatible tools for multi-agent workflows.
+Wraps WebScope as CrewAI-compatible tools for multi-agent workflows.
 
 Usage:
-    from webview_crewai import WebViewBrowseTool, WebViewClickTool, WebViewTypeTool
+    from webscope_crewai import WebScopeBrowseTool, WebScopeClickTool, WebScopeTypeTool
 
     researcher = Agent(
         role="Web Researcher",
-        tools=[WebViewBrowseTool(), WebViewClickTool(), WebViewTypeTool()],
+        tools=[WebScopeBrowseTool(), WebScopeClickTool(), WebScopeTypeTool()],
         ...
     )
 
 Requires:
     pip install crewai requests
-    webview --serve 3000
+    webscope --serve 3000
 """
 
 import requests
@@ -75,8 +75,8 @@ class ScrollSchema(BaseModel):
 
 # ─── CrewAI Tools ─────────────────────────────────────────────────────────────
 
-class WebViewBrowseTool(BaseTool):
-    name: str = "webview_navigate"
+class WebScopeBrowseTool(BaseTool):
+    name: str = "webscope_navigate"
     description: str = "Navigate to a URL and see it as a text grid. Interactive elements are marked with [ref] numbers for clicking/typing. ~500x smaller than screenshots, no vision model needed."
     args_schema: Type[BaseModel] = NavigateSchema
 
@@ -84,8 +84,8 @@ class WebViewBrowseTool(BaseTool):
         return _call("/navigate", {"url": url})
 
 
-class WebViewClickTool(BaseTool):
-    name: str = "webview_click"
+class WebScopeClickTool(BaseTool):
+    name: str = "webscope_click"
     description: str = "Click an interactive element by its [ref] number from the text grid."
     args_schema: Type[BaseModel] = ClickSchema
 
@@ -93,8 +93,8 @@ class WebViewClickTool(BaseTool):
         return _call("/click", {"ref": ref})
 
 
-class WebViewTypeTool(BaseTool):
-    name: str = "webview_type"
+class WebScopeTypeTool(BaseTool):
+    name: str = "webscope_type"
     description: str = "Type text into an input field by its [ref] number."
     args_schema: Type[BaseModel] = TypeSchema
 
@@ -102,8 +102,8 @@ class WebViewTypeTool(BaseTool):
         return _call("/type", {"ref": ref, "text": text})
 
 
-class WebViewSelectTool(BaseTool):
-    name: str = "webview_select"
+class WebScopeSelectTool(BaseTool):
+    name: str = "webscope_select"
     description: str = "Select a dropdown option by [ref] number."
     args_schema: Type[BaseModel] = SelectSchema
 
@@ -111,8 +111,8 @@ class WebViewSelectTool(BaseTool):
         return _call("/select", {"ref": ref, "value": value})
 
 
-class WebViewScrollTool(BaseTool):
-    name: str = "webview_scroll"
+class WebScopeScrollTool(BaseTool):
+    name: str = "webscope_scroll"
     description: str = "Scroll the page up, down, or to top."
     args_schema: Type[BaseModel] = ScrollSchema
 
@@ -120,8 +120,8 @@ class WebViewScrollTool(BaseTool):
         return _call("/scroll", {"direction": direction})
 
 
-class WebViewSnapshotTool(BaseTool):
-    name: str = "webview_snapshot"
+class WebScopeSnapshotTool(BaseTool):
+    name: str = "webscope_snapshot"
     description: str = "Re-render the current page as text without navigating."
 
     def _run(self) -> str:
