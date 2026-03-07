@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/Aditya060806/WebScope/main/public/webscope-logo-narrow.png" alt="WebScope" width="400" />
 
-### Give your AI agent eyes — without the vision model.
+### Give your AI agent eyes - without the vision model.
 
 WebScope turns any web page into a lightweight, structured text grid that LLMs can read, understand, and interact with — all without screenshots, vision APIs, or pixel parsing.
 
