@@ -20,6 +20,7 @@
     "src/",
     "mcp/",
     "tools/",
+    "public/",
     "logo.svg",
     "README.md",
     "LICENSE"
