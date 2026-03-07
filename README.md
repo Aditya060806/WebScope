@@ -1,12 +1,25 @@
-# WebView
+<div align="center">
 
-**A text-grid web renderer for AI agents — see the web without screenshots.**
+# 🌐 WebView
 
-Instead of taking expensive screenshots and piping them through vision models, WebView renders web pages as structured text grids that LLMs can reason about natively. Full JavaScript execution, spatial layout preserved, interactive elements annotated.
+### Give your AI agent eyes — without the vision model.
 
-📄 [Documentation](https://github.com/Aditya060806/WebView) · 📦 [npm](https://www.npmjs.com/package/webview) · 🐙 [GitHub](https://github.com/Aditya060806/WebView)
+WebView turns any web page into a lightweight, structured text grid that LLMs can read, understand, and interact with — all without screenshots, vision APIs, or pixel parsing.
 
-## Why?
+Full JavaScript execution. Spatial layout preserved. Every interactive element annotated and clickable by reference.
+
+[![npm version](https://img.shields.io/npm/v/webview)](https://www.npmjs.com/package/webview)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+[📄 Docs](https://github.com/Aditya060806/WebView) · [📦 npm](https://www.npmjs.com/package/webview) · [🐙 GitHub](https://github.com/Aditya060806/WebView)
+
+</div>
+
+---
+
+## The Problem
+
+Every existing approach to giving LLMs web access has a tradeoff that hurts:
 
 | Approach | Size | Requires | Speed | Spatial Layout |
 |----------|------|----------|-------|----------------|
@@ -15,25 +28,33 @@ Instead of taking expensive screenshots and piping them through vision models, W
 | Raw HTML | ~100KB+ | Nothing | Fast | ❌ Lost |
 | **WebView** | **~2-5KB** | **Nothing** | **Fast** | **✅ Preserved** |
 
-## Quick Start
+Screenshots are bulky and need expensive vision models to interpret. Accessibility trees and raw HTML are fast but throw away *where* things are on the page — layout, proximity, visual grouping. WebView keeps the spatial structure intact, in a format that's native to how LLMs already think: **text**.
+
+---
+
+## Get Started
 
 ```bash
 npm install -g webview
 npx playwright install chromium
 ```
 
+You're ready. Try it out:
+
 ```bash
-# Render any page
+# Render any page as a text grid
 webview https://news.ycombinator.com
 
-# Interactive mode
+# Drop into interactive mode — click, type, scroll in real time
 webview --interactive https://github.com
 
-# JSON output for agents
+# Pipe structured JSON directly to your agent
 webview --json https://example.com
 ```
 
-## Example Output
+---
+
+## What Your Agent Sees
 
 ```
 [0]Hacker News [1]new | [2]past | [3]comments | [4]ask | [5]show | [6]jobs | [7]submit      [8]login
@@ -46,21 +67,21 @@ webview --json https://example.com
 [13:______________________] [14 Search]
 ```
 
-~500 bytes. An LLM can read this, understand the layout, and say "click ref 9" to open the first link. No vision model needed.
+That's roughly **500 bytes**. Your LLM reads this, understands the layout, and says *"click ref 9"* to open the first link. No vision model. No base64 images. Just text.
 
-## Integration Options
+---
 
-WebView works with any AI agent framework. Pick your integration:
+## Integrations
 
-### 🔌 MCP Server (Claude Desktop, Cursor, Windsurf, Cline)
+WebView slots into whatever stack you're already using.
 
-The fastest way to add web browsing to any MCP-compatible client.
+### 🔌 MCP Server — Claude Desktop, Cursor, Windsurf, Cline
+
+The zero-config path. Install once, and any MCP-compatible client gets full web browsing.
 
 ```bash
-# Install globally
 npm install -g webview
-
-# Or run directly
+# or run directly:
 npx webview-mcp
 ```
 
@@ -88,32 +109,31 @@ npx webview-mcp
 }
 ```
 
-Then just ask: *"Go to hacker news and find posts about AI"* — the agent uses text grids instead of screenshots.
+Now just ask your agent: *"Go to Hacker News and summarize the top posts about AI."* It handles the rest.
 
-**MCP Capabilities:**
-- `session_id` on every tool call for isolated parallel workflows
-- `webview_storage_save` / `webview_storage_load` for persistent auth/session state
-- `webview_wait_for` for multi-step async UI transitions
-- `webview_assert_field` for flow guards before submit
+**What the MCP server gives you:**
+- **`session_id`** on every tool call — run isolated parallel workflows without stepping on each other
+- **`webview_storage_save` / `webview_storage_load`** — persist cookies, localStorage, and session state across runs
+- **`webview_wait_for`** — pause until a selector appears, text loads, or a URL changes (essential for SPAs)
+- **`webview_assert_field`** — guard your multi-step flows: verify field values *before* clicking submit
+
+---
 
 ### 🛠️ OpenAI / Anthropic Function Calling
 
-Drop-in tool definitions for any function-calling model. See [`tools/tool_definitions.json`](tools/tool_definitions.json).
+Ready-made tool definitions you can plug directly into any function-calling model. See [`tools/tool_definitions.json`](tools/tool_definitions.json).
 
-Pair with the [system prompt](tools/system_prompt.md) to teach the model how to read the grid:
+Pair it with the [system prompt](tools/system_prompt.md) so the model knows how to read and navigate the grid:
 
 ```python
 import json
 
-# Load tool definitions
 with open("tools/tool_definitions.json") as f:
     webview_tools = json.load(f)["tools"]
 
-# Load system prompt
 with open("tools/system_prompt.md") as f:
     system_prompt = f.read()
 
-# Use with OpenAI
 response = openai.chat.completions.create(
     model="gpt-4",
     messages=[
@@ -124,6 +144,8 @@ response = openai.chat.completions.create(
 )
 ```
 
+---
+
 ### 🦜 LangChain
 
 ```python
@@ -132,11 +154,12 @@ from tools.langchain import get_webview_tools
 # Start the server first: webview --serve 3000
 tools = get_webview_tools(base_url="http://localhost:3000")
 
-# Use with any LangChain agent
 from langchain.agents import initialize_agent
 agent = initialize_agent(tools, llm, agent="zero-shot-react-description")
 agent.run("Find the top story on Hacker News")
 ```
+
+---
 
 ### 🚢 CrewAI
 
@@ -151,24 +174,40 @@ researcher = Agent(
 )
 ```
 
+---
+
 ### 🌐 HTTP API
 
-```bash
-# Start the server
-webview --serve 3000
+Spin up the REST server and call it from anything — Python, curl, your own orchestrator.
 
-# Navigate
+```bash
+webview --serve 3000
+```
+
+```bash
+# Navigate to a page
 curl -X POST http://localhost:3000/navigate \
   -H 'Content-Type: application/json' \
   -d '{"url": "https://example.com"}'
 
-# Click, type, scroll
+# Interact
 curl -X POST http://localhost:3000/click -d '{"ref": 3}'
 curl -X POST http://localhost:3000/type -d '{"ref": 7, "text": "hello"}'
 curl -X POST http://localhost:3000/scroll -d '{"direction": "down"}'
+curl -X POST http://localhost:3000/press -d '{"key": "Enter"}'
+curl -X POST http://localhost:3000/waitFor -d '{"selector": ".results"}'
+curl -X POST http://localhost:3000/assertField -d '{"ref": 7, "expected": "hello"}'
+curl -X POST http://localhost:3000/saveState -d '{"path": "/tmp/state.json"}'
+curl -X POST http://localhost:3000/loadState -d '{"path": "/tmp/state.json"}'
 ```
 
+> **Security:** Set `WEBVIEW_API_KEY` to require `Authorization: Bearer <key>` on all requests. Set `WEBVIEW_CORS_ORIGIN` to lock down cross-origin access.
+
+---
+
 ### 📦 Node.js Library
+
+Use it directly in your own code — no server required.
 
 ```javascript
 const { AgentBrowser } = require('webview');
@@ -183,17 +222,36 @@ console.log(meta.stats);  // { totalElements, interactiveElements, renderMs }
 await browser.click(3);              // Click element [3]
 await browser.type(7, 'hello');      // Type into element [7]
 await browser.scroll('down');        // Scroll down
-await browser.waitFor({ selector: '.step-2.active' }); // Wait for next step
-await browser.assertField(7, 'hello', { comparator: 'equals' }); // Validate field state
+await browser.press('Enter');        // Press a key
+await browser.waitFor({ selector: '.step-2.active' });
+await browser.assertField(7, 'hello', { comparator: 'equals' });
 await browser.saveStorageState('/tmp/webview-state.json');
 await browser.loadStorageState('/tmp/webview-state.json');
-await browser.query('nav a');        // Find elements by CSS selector
-await browser.screenshot();          // PNG buffer (for debugging)
-console.log(browser.getCurrentUrl());// Current page URL
+await browser.query('nav a');        // CSS selector search
+await browser.screenshot();          // PNG buffer (debugging)
+console.log(browser.getCurrentUrl());
 await browser.close();
 ```
 
+---
+
+## Configuration
+
+Everything can be configured via CLI flags or environment variables. CLI flags always take priority.
+
+| Flag | Env Variable | Default | Description |
+|------|-------------|---------|-------------|
+| `--port, -p` | `WEBVIEW_PORT` | `3000` | HTTP server port |
+| `--cols, -c` | `WEBVIEW_COLS` | `100` | Grid width in characters |
+| `--timeout, -t` | `WEBVIEW_TIMEOUT` | `30000` | Request timeout (ms) |
+| — | `WEBVIEW_API_KEY` | *(none)* | Require this API key on all HTTP requests |
+| — | `WEBVIEW_CORS_ORIGIN` | `*` | Allowed CORS origin (`*` = open) |
+
+---
+
 ## Grid Conventions
+
+Each element type has a consistent visual representation in the text grid:
 
 | Element | Rendering | Interaction |
 |---------|-----------|-------------|
@@ -208,7 +266,9 @@ await browser.close();
 | Separators | `────────────────` | — |
 | List items | `• Item text` | — |
 
-## How It Works
+---
+
+## Under the Hood
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -225,14 +285,18 @@ await browser.close();
 └─────────────────────────────────────────────┘
 ```
 
-1. **Real browser** renders the page (full JS, CSS, dynamic content)
-2. **Extract** every visible element's position, size, text, and interactivity
-3. **Map** pixel coordinates to character grid positions (spatial layout preserved)
-4. **Annotate** interactive elements with `[ref]` numbers for agent interaction
+The pipeline is straightforward:
+
+1. **Render** — A real Chromium instance loads the page with full JS/CSS execution
+2. **Extract** — Every visible element's position, size, text, and interactivity is captured
+3. **Map** — Pixel coordinates are converted to character grid positions, preserving spatial layout
+4. **Annotate** — Interactive elements get `[ref]` numbers so agents can act on them
+
+---
 
 ## Selector Strategy
 
-WebView builds stable CSS selectors for each interactive element, preferring resilient strategies over brittle positional ones:
+Selectors need to survive between snapshots — if the DOM shifts slightly, your agent shouldn't lose track of the submit button. WebView builds resilient CSS selectors with this priority:
 
 | Priority | Strategy | Example |
 |----------|----------|---------|
@@ -244,39 +308,66 @@ WebView builds stable CSS selectors for each interactive element, preferring res
 | 6 | `a[href]` (if unique) | `a[href="/about"]` |
 | 7 | `nth-child` (fallback) | `div > a:nth-child(3)` |
 
-This means selectors survive DOM changes between snapshots — critical for multi-step agent workflows.
+This stability is what makes multi-step workflows reliable — your agent can fill a form across several page transitions without selectors breaking between steps.
 
-## ATS Workflow Examples (Greenhouse / Lever)
+---
 
-For multi-step ATS flows, use a stable `session_id` and combine wait/assert guards:
+## Real-World Example: ATS Job Application
+
+Multi-step application flows (Greenhouse, Lever, etc.) are where WebView really shines. Here's how you'd automate one:
 
 ```javascript
-// Keep one session for the whole application
+// Open the job posting — keep a stable session throughout
 await webview_navigate({ url: 'https://job-boards.greenhouse.io/acme/jobs/123', session_id: 'apply-acme' });
 
-// Fill + continue
+// Fill out the form
 await webview_type({ ref: 12, text: 'Aditya', session_id: 'apply-acme' });
 await webview_type({ ref: 15, text: 'Pandey', session_id: 'apply-acme' });
 await webview_click({ ref: 42, session_id: 'apply-acme', retries: 3, retry_delay_ms: 400 });
 
-// Guard transition
+// Wait for the next step to load before continuing
 await webview_wait_for({ selector: '#step-2.active', timeout_ms: 8000, session_id: 'apply-acme', retries: 2 });
 
-// Validate before submit
+// Double-check a field value before submitting
 await webview_assert_field({ ref: 77, expected: 'San Francisco', comparator: 'includes', session_id: 'apply-acme' });
 
-// Persist auth/session for follow-up flow
+// Save the session so you can resume later
 await webview_storage_save({ path: '/tmp/ats-state.json', session_id: 'apply-acme' });
 ```
 
-Useful session tools:
-- `webview_session_list` → inspect active sessions
-- `webview_session_close` → close one session or all
+**Handy session management:**
+- `webview_session_list` — see all active sessions
+- `webview_session_close` — tear down one or all sessions
+
+---
+
+## Error Handling
+
+All HTTP errors return a structured JSON response with a machine-readable code:
+
+```json
+{ "error": "URL scheme \"file:\" is not allowed", "code": "INVALID_URL_SCHEME" }
+```
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| `MISSING_PARAM` | 400 | A required field is missing from the request body |
+| `INVALID_URL` | 400 | The URL could not be parsed |
+| `INVALID_URL_SCHEME` | 400 | Blocked scheme (`file:`, `javascript:`, `data:`, etc.) |
+| `INVALID_JSON` | 400 | Request body is not valid JSON |
+| `BROWSER_NOT_READY` | 400 | No page loaded yet — call `/navigate` first |
+| `BODY_TOO_LARGE` | 413 | Request body exceeds 1 MB |
+| `UNAUTHORIZED` | 401 | Missing or invalid API key |
+| `NOT_FOUND` | 404 | Unknown endpoint |
+| `METHOD_NOT_ALLOWED` | 405 | Wrong HTTP method for this endpoint |
+| `INTERNAL_ERROR` | 500 | Something unexpected went wrong |
+
+---
 
 ## Testing
 
 ```bash
-# Run all tests (form + live + ATS e2e)
+# Run all tests
 npm test
 
 # Form fixture tests
@@ -289,21 +380,26 @@ npm run test:live
 npm run test:ats
 ```
 
-Test fixtures are in `test/fixtures/` — includes a comprehensive HTML form and an ATS-style multi-step application fixture.
+Test fixtures live in `test/fixtures/` — includes a comprehensive HTML form and an ATS-style multi-step application flow.
 
-## Design Principles
+---
 
-1. **Text is native to LLMs** — no vision model middleman
-2. **Spatial layout matters** — flat element lists lose the "where"
-3. **Cheap and fast** — 2-5KB per render vs 1MB+ screenshots
-4. **Full web support** — real Chromium runs the JS
-5. **Interactive** — reference numbers map to real DOM elements
+## Design Philosophy
+
+1. **Text is native to LLMs** — no vision model middleman, no base64 encoding, no token-heavy image payloads
+2. **Spatial layout matters** — a flat list of elements loses the *where;* WebView preserves it
+3. **Cheap and fast** — 2–5 KB per render vs. 1 MB+ screenshots
+4. **Full web support** — real Chromium runs the JavaScript; SPAs, dynamic content, and auth flows all work
+5. **Interactive by design** — numbered references map directly to real DOM elements; click, type, scroll
+
+---
 
 ## Author
 
 **Aditya Pandey**
-- [GitHub](https://github.com/Aditya060806)
-- [LinkedIn](https://www.linkedin.com/in/aditya-pandey-p1002/)
+
+[![GitHub](https://img.shields.io/badge/GitHub-Aditya060806-181717?logo=github)](https://github.com/Aditya060806)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Aditya%20Pandey-0A66C2?logo=linkedin)](https://www.linkedin.com/in/aditya-pandey-p1002/)
 
 ## License
 
