@@ -4,7 +4,7 @@
 
 const http = require('http');
 const url = require('url');
-const { AgentBrowser } = require('./browser');
+const { AgentBrowser, DEVICE_ALIASES } = require('./browser');
 
 class WebScopeServer {
   constructor(options = {}) {
@@ -31,12 +31,15 @@ class WebScopeServer {
   /**
    * Initialize browser if not already initialized
    */
-  async initBrowser() {
+  async initBrowser(options = {}) {
     if (!this.browser) {
       this.browser = new AgentBrowser({
         cols: this.options.cols,
         headless: true,
-        timeout: this.options.timeout
+        timeout: this.options.timeout,
+        proxy: options.proxy || process.env.WEBSCOPE_PROXY || null,
+        headers: options.headers || {},
+        device: options.device || null,
       });
     }
     this.lastActivity = Date.now();
@@ -248,6 +251,87 @@ class WebScopeServer {
           }
           break;
 
+        case '/evaluate':
+          if (method === 'POST') {
+            return await this.handleEvaluate(req, res);
+          }
+          break;
+
+        case '/batch':
+          if (method === 'POST') {
+            return await this.handleBatch(req, res);
+          }
+          break;
+
+        case '/diff':
+          if (method === 'GET') {
+            return await this.handleDiff(req, res);
+          }
+          break;
+
+        case '/find':
+          if (method === 'POST') {
+            return await this.handleFind(req, res);
+          }
+          break;
+
+        case '/headers':
+          if (method === 'POST') {
+            return await this.handleSetHeaders(req, res);
+          }
+          break;
+
+        case '/devices':
+          if (method === 'GET') {
+            return this.handleDevices(req, res);
+          }
+          break;
+
+        case '/network':
+          if (method === 'GET') {
+            return await this.handleNetwork(req, res, query);
+          }
+          if (method === 'DELETE') {
+            return await this.handleClearNetwork(req, res);
+          }
+          break;
+
+        case '/record/start':
+          if (method === 'POST') {
+            return await this.handleRecordStart(req, res);
+          }
+          break;
+
+        case '/record/stop':
+          if (method === 'POST') {
+            return await this.handleRecordStop(req, res);
+          }
+          break;
+
+        case '/record/export':
+          if (method === 'GET') {
+            return await this.handleRecordExport(req, res);
+          }
+          break;
+
+        case '/replay':
+          if (method === 'POST') {
+            return await this.handleReplay(req, res);
+          }
+          break;
+
+        case '/metrics':
+          if (method === 'GET') {
+            return this.handleMetrics(req, res);
+          }
+          break;
+
+        case '/openapi.json':
+          if (method === 'GET') {
+            return this.handleOpenAPI(req, res);
+          }
+          break;
+
         default:
           return this.sendError(res, 'Not found', 404, 'NOT_FOUND');
       }
@@ -294,8 +378,8 @@ class WebScopeServer {
       return this.sendError(res, `URL scheme "${parsedUrl.protocol}" is not allowed`, 400, 'INVALID_URL_SCHEME');
     }
 
-    await this.initBrowser();
-    const result = await this.browser.navigate(body.url, body.options);
+    await this.initBrowser({ headers: body.headers, device: body.device, proxy: body.proxy });
+    const result = await this.browser.navigate(body.url, { ...body.options, headers: body.headers });
 
     this.sendJSON(res, {
       success: true,
@@ -635,6 +719,244 @@ class WebScopeServer {
       action: 'loadState',
       path: loaded.path
     });
+  }
+
+  /**
+   * Execute JavaScript in the page
+   */
+  async handleEvaluate(req, res) {
+    const body = await this.parseBody(req);
+    if (!body.script) {
+      return this.sendError(res, 'script is required', 400, 'MISSING_PARAM');
+    }
+    if (!this.browser) {
+      return this.sendError(res, 'Browser not initialized. Navigate to a page first.', 400, 'BROWSER_NOT_READY');
+    }
+
+    const result = await this.browser.evaluate(body.script);
+
+    this.sendJSON(res, {
+      success: true,
+      action: 'evaluate',
+      result,
+    });
+  }
+
+  /**
+   * Execute a batch of actions
+   */
+  async handleBatch(req, res) {
+    const body = await this.parseBody(req);
+    if (!body.actions || !Array.isArray(body.actions)) {
+      return this.sendError(res, 'actions (array) is required', 400, 'MISSING_PARAM');
+    }
+    if (!this.browser) {
+      return this.sendError(res, 'Browser not initialized. Navigate to a page first.', 400, 'BROWSER_NOT_READY');
+    }
+
+    const result = await this.browser.batch(body.actions);
+
+    this.sendJSON(res, {
+      success: true,
+      action: 'batch',
+      ...result,
+    });
+  }
+
+  /**
+   * Diff current vs previous snapshot
+   */
+  async handleDiff(req, res) {
+    if (!this.browser) {
+      return this.sendError(res, 'Browser not initialized. Navigate to a page first.', 400, 'BROWSER_NOT_READY');
+    }
+
+    const result = this.browser.diff();
+
+    this.sendJSON(res, {
+      success: true,
+      action: 'diff',
+      ...result,
+    });
+  }
+
+  /**
+   * Semantic find elements by query
+   */
+  async handleFind(req, res) {
+    const body = await this.parseBody(req);
+    if (!body.query) {
+      return this.sendError(res, 'query is required', 400, 'MISSING_PARAM');
+    }
+    if (!this.browser) {
+      return this.sendError(res, 'Browser not initialized. Navigate to a page first.', 400, 'BROWSER_NOT_READY');
+    }
+
+    const results = this.browser.find(body.query);
+
+    this.sendJSON(res, {
+      success: true,
+      action: 'find',
+      query: body.query,
+      matches: results,
+    });
+  }
+
+  /**
+   * Set session-level HTTP headers
+   */
+  async handleSetHeaders(req, res) {
+    const body = await this.parseBody(req);
+    if (!body.headers || typeof body.headers !== 'object') {
+      return this.sendError(res, 'headers (object) is required', 400, 'MISSING_PARAM');
+    }
+    await this.initBrowser();
+    this.browser.setHeaders(body.headers);
+
+    this.sendJSON(res, {
+      success: true,
+      action: 'setHeaders',
+      headers: body.headers,
+    });
+  }
+
+  /**
+   * List available device profiles
+   */
+  handleDevices(req, res) {
+    this.sendJSON(res, {
+      success: true,
+      devices: AgentBrowser.getDeviceList(),
+    });
+  }
+
+  /**
+   * Get network log
+   */
+  async handleNetwork(req, res, query) {
+    if (!this.browser) {
+      return this.sendError(res, 'Browser not initialized. Navigate to a page first.', 400, 'BROWSER_NOT_READY');
+    }
+
+    const log = this.browser.getNetworkLog({
+      type: query.type,
+      resourceType: query.resourceType,
+      urlPattern: query.urlPattern,
+    });
+
+    this.sendJSON(res, {
+      success: true,
+      action: 'network',
+      count: log.length,
+      entries: log.slice(-100),
+    });
+  }
+
+  /**
+   * Clear network log
+   */
+  async handleClearNetwork(req, res) {
+    if (!this.browser) {
+      return this.sendError(res, 'Browser not initialized.', 400, 'BROWSER_NOT_READY');
+    }
+
+    this.browser.clearNetworkLog();
+    this.sendJSON(res, { success: true, action: 'clearNetwork' });
+  }
+
+  /**
+   * Start recording
+   */
+  async handleRecordStart(req, res) {
+    if (!this.browser) {
+      return this.sendError(res, 'Browser not initialized. Navigate to a page first.', 400, 'BROWSER_NOT_READY');
+    }
+
+    const result = this.browser.startRecording();
+    this.sendJSON(res, { success: true, action: 'recordStart', ...result });
+  }
+
+  /**
+   * Stop recording
+   */
+  async handleRecordStop(req, res) {
+    if (!this.browser) {
+      return this.sendError(res, 'Browser not initialized.', 400, 'BROWSER_NOT_READY');
+    }
+
+    const result = this.browser.stopRecording();
+    this.sendJSON(res, { success: true, action: 'recordStop', ...result });
+  }
+
+  /**
+   * Export recording
+   */
+  async handleRecordExport(req, res) {
+    if (!this.browser) {
+      return this.sendError(res, 'Browser not initialized.', 400, 'BROWSER_NOT_READY');
+    }
+
+    const actions = this.browser.exportRecording();
+    this.sendJSON(res, { success: true, action: 'recordExport', actions });
+  }
+
+  /**
+   * Replay actions
+   */
+  async handleReplay(req, res) {
+    const body = await this.parseBody(req);
+    if (!this.browser) {
+      return this.sendError(res, 'Browser not initialized. Navigate to a page first.', 400, 'BROWSER_NOT_READY');
+    }
+
+    const result = await this.browser.replay(body.actions);
+    this.sendJSON(res, { success: true, action: 'replay', ...result });
+  }
+
+  /**
+   * Metrics endpoint (Prometheus format)
+   */
+  handleMetrics(req, res) {
+    const networkCount = this.browser ? this.browser.networkLog.length : 0;
+    const hasPage = this.browser?.page ? 1 : 0;
+    const body = [
+      '# HELP webscope_browser_active Whether a browser instance is active',
+      '# TYPE webscope_browser_active gauge',
+      `webscope_browser_active ${hasPage}`,
+      '# HELP webscope_network_events_total Total network events captured',
+      '# TYPE webscope_network_events_total counter',
+      `webscope_network_events_total ${networkCount}`,
+      '# HELP webscope_last_activity_timestamp Last activity epoch seconds',
+      '# TYPE webscope_last_activity_timestamp gauge',
+      `webscope_last_activity_timestamp ${Math.floor(this.lastActivity / 1000)}`,
+    ].join('\n') + '\n';
+
+    res.writeHead(200, {
+      'Content-Type': 'text/plain; version=0.0.4',
+      'Access-Control-Allow-Origin': this.corsOrigin,
+    });
+    res.end(body);
+  }
+
+  /**
+   * OpenAPI spec endpoint
+   */
+  handleOpenAPI(req, res) {
+    const fs = require('fs');
+    const path = require('path');
+    const yamlPath = path.join(__dirname, '..', 'openapi.yaml');
+    try {
+      const yaml = fs.readFileSync(yamlPath, 'utf8');
+      // Simple YAML to JSON conversion for the spec
+      // We serve the raw YAML with proper content type
+      res.writeHead(200, {
+        'Content-Type': 'text/yaml',
+        'Access-Control-Allow-Origin': this.corsOrigin,
+      });
+      res.end(yaml);
+    } catch (err) {
+      this.sendError(res, 'OpenAPI spec not found', 404, 'NOT_FOUND');
+    }
   }
 
   /**

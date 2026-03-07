@@ -17,6 +17,25 @@ Full JavaScript execution. Spatial layout preserved. Every interactive element a
 
 ---
 
+## What's New in v1.0.0
+
+| Feature | Description |
+|---------|-------------|
+| **Custom Headers & Auth** | Pass `Authorization`, cookies, or any custom headers with every request |
+| **Device Emulation** | Render as iPhone, Pixel, iPad — 9 built-in profiles via `--device` flag |
+| **JavaScript Evaluation** | Run arbitrary JS in the page with `webscope_evaluate` |
+| **Batch Operations** | Chain multiple actions in a single call with `webscope_batch` |
+| **Change Detection** | Diff snapshots to see what elements appeared, disappeared, or changed |
+| **Semantic Search** | Find elements by natural language: "login button", "email input" |
+| **Proxy Support** | Route through HTTP/SOCKS proxies via `--proxy` or `WEBSCOPE_PROXY` |
+| **Session Recording** | Record, export, and replay action sequences |
+| **Network Inspector** | Capture all HTTP requests/responses for debugging |
+| **Async Python Tools** | Production-ready async LangChain and CrewAI integrations with `httpx` |
+| **OpenAPI Spec** | Full OpenAPI 3.1 spec at `/openapi.json` |
+| **Prometheus Metrics** | `/metrics` endpoint for monitoring |
+
+---
+
 ## The Problem
 
 Every existing approach to giving LLMs web access has a tradeoff that hurts:
@@ -121,6 +140,15 @@ Now just ask your agent: *"Go to Hacker News and summarize the top posts about A
 - **`webscope_storage_save` / `webscope_storage_load`** — persist cookies, localStorage, and session state across runs
 - **`webscope_wait_for`** — pause until a selector appears, text loads, or a URL changes (essential for SPAs)
 - **`webscope_assert_field`** — guard your multi-step flows: verify field values *before* clicking submit
+- **`webscope_evaluate`** — run JavaScript in the page for advanced extraction or manipulation
+- **`webscope_batch`** — chain multiple actions in a single call for efficiency
+- **`webscope_diff`** — see what changed between snapshots (elements added, removed, modified)
+- **`webscope_find`** — semantic search: find elements by description ("login button", "email input")
+- **`webscope_network`** — inspect all HTTP requests/responses made by the page
+- **`webscope_record_start/stop/export`** + **`webscope_replay`** — record and replay action sequences
+- **`webscope_devices`** — list available device profiles for mobile/tablet emulation
+- **Custom headers** — pass `headers` to `webscope_navigate` for auth tokens, cookies, etc.
+- **Device emulation** — pass `device: "iphone14"` to render as mobile
 
 ---
 
@@ -164,6 +192,15 @@ agent = initialize_agent(tools, llm, agent="zero-shot-react-description")
 agent.run("Find the top story on Hacker News")
 ```
 
+**Async version** (recommended for production):
+
+```python
+from tools.langchain_async import get_webscope_tools_async
+
+tools = get_webscope_tools_async(base_url="http://localhost:3000")
+# Works with async agents, includes evaluate, find, and header support
+```
+
 ---
 
 ### CrewAI
@@ -177,6 +214,13 @@ researcher = Agent(
     tools=[WebScopeBrowseTool(), WebScopeClickTool(), WebScopeTypeTool()],
     llm=llm,
 )
+```
+
+**Async version:**
+
+```python
+from tools.crewai_async import AsyncWebScopeBrowseTool, AsyncWebScopeClickTool
+# Includes evaluate, find, and device emulation support
 ```
 
 ---
@@ -195,6 +239,10 @@ curl -X POST http://localhost:3000/navigate \
   -H 'Content-Type: application/json' \
   -d '{"url": "https://example.com"}'
 
+# Navigate with auth headers and device emulation
+curl -X POST http://localhost:3000/navigate \
+  -d '{"url": "https://example.com", "headers": {"Authorization": "Bearer token"}, "device": "iphone14"}'
+
 # Interact
 curl -X POST http://localhost:3000/click -d '{"ref": 3}'
 curl -X POST http://localhost:3000/type -d '{"ref": 7, "text": "hello"}'
@@ -202,6 +250,25 @@ curl -X POST http://localhost:3000/scroll -d '{"direction": "down"}'
 curl -X POST http://localhost:3000/press -d '{"key": "Enter"}'
 curl -X POST http://localhost:3000/waitFor -d '{"selector": ".results"}'
 curl -X POST http://localhost:3000/assertField -d '{"ref": 7, "expected": "hello"}'
+
+# New in v1.0.0
+curl -X POST http://localhost:3000/evaluate -d '{"script": "document.title"}'
+curl -X POST http://localhost:3000/batch -d '{"actions": [{"action": "click", "params": {"ref": 3}}]}'
+curl -X POST http://localhost:3000/find -d '{"query": "submit button"}'
+curl -X POST http://localhost:3000/headers -d '{"headers": {"X-Custom": "value"}}'
+curl http://localhost:3000/diff
+curl http://localhost:3000/devices
+curl http://localhost:3000/network
+curl http://localhost:3000/metrics
+curl http://localhost:3000/openapi.json
+
+# Recording
+curl -X POST http://localhost:3000/record/start
+curl -X POST http://localhost:3000/record/stop
+curl http://localhost:3000/record/export
+curl -X POST http://localhost:3000/replay
+
+# State management
 curl -X POST http://localhost:3000/saveState -d '{"path": "/tmp/state.json"}'
 curl -X POST http://localhost:3000/loadState -d '{"path": "/tmp/state.json"}'
 ```
@@ -235,6 +302,19 @@ await browser.loadStorageState('/tmp/webscope-state.json');
 await browser.query('nav a');        // CSS selector search
 await browser.screenshot();          // PNG buffer (debugging)
 console.log(browser.getCurrentUrl());
+
+// v1.0.0 features
+await browser.evaluate('document.title');                // Run JS in page
+await browser.batch([                                    // Multi-step batch
+  { action: 'type', params: { ref: 3, text: 'user@example.com' } },
+  { action: 'click', params: { ref: 7 } },
+]);
+browser.find('submit button');                           // Semantic search
+browser.diff();                                          // Change detection
+browser.setHeaders({ 'Authorization': 'Bearer token' });// Session headers
+browser.startRecording();                                // Record actions
+browser.getNetworkLog();                                 // Network capture
+
 await browser.close();
 ```
 
@@ -249,6 +329,9 @@ Everything can be configured via CLI flags or environment variables. CLI flags a
 | `--port, -p` | `WEBSCOPE_PORT` | `3000` | `int` | HTTP server port |
 | `--cols, -c` | `WEBSCOPE_COLS` | `100` | `int` | Grid width in characters |
 | `--timeout, -t` | `WEBSCOPE_TIMEOUT` | `30000` | `int` | Navigation timeout in milliseconds |
+| `--device, -d` | — | — | `string` | Device profile (iphone14, pixel7, ipadpro, etc.) |
+| `--proxy` | `WEBSCOPE_PROXY` | — | `string` | HTTP/SOCKS proxy URL |
+| `--record` | — | `false` | `bool` | Record actions in interactive mode |
 | — | `WEBSCOPE_API_KEY` | — | `string` | API key required on all HTTP requests |
 | — | `WEBSCOPE_CORS_ORIGIN` | `*` | `string` | Allowed CORS origin |
 

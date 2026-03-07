@@ -14,6 +14,14 @@
               "type": "string",
               "description": "The URL to navigate to"
             },
+            "headers": {
+              "type": "object",
+              "description": "Custom HTTP headers (e.g., {\"Authorization\": \"Bearer token\"})"
+            },
+            "device": {
+              "type": "string",
+              "description": "Device profile for emulation (e.g., iphone14, pixel7, ipadpro)"
+            },
             "session_id": {
               "type": "string",
               "description": "Optional session id (default: default)"
@@ -422,6 +430,210 @@
               "description": "Close all active sessions"
             }
           }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "webscope_evaluate",
+        "description": "Execute a JavaScript expression in the browser page and return the result.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "script": {
+              "type": "string",
+              "description": "JavaScript expression to evaluate (e.g., \"document.title\")"
+            },
+            "session_id": {
+              "type": "string",
+              "description": "Optional session id (default: default)"
+            }
+          },
+          "required": ["script"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "webscope_batch",
+        "description": "Execute multiple actions in sequence. Stops on first error.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "actions": {
+              "type": "array",
+              "description": "Actions to execute: [{action: 'click', params: {ref: 5}}, ...]",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": ["navigate", "click", "type", "select", "scroll", "press", "upload", "snapshot", "waitFor", "evaluate"]
+                  },
+                  "params": {
+                    "type": "object"
+                  }
+                },
+                "required": ["action"]
+              }
+            },
+            "session_id": {
+              "type": "string",
+              "description": "Optional session id (default: default)"
+            }
+          },
+          "required": ["actions"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "webscope_diff",
+        "description": "Compare current snapshot against the previous one. Shows added, removed, and changed elements.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string",
+              "description": "Optional session id (default: default)"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "webscope_find",
+        "description": "Search for interactive elements by natural language query.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search query (e.g., 'login button', 'email input')"
+            },
+            "session_id": {
+              "type": "string",
+              "description": "Optional session id (default: default)"
+            }
+          },
+          "required": ["query"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "webscope_network",
+        "description": "Get the network request/response log. Optionally filter by type or URL pattern.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["request", "response"],
+              "description": "Filter by entry type"
+            },
+            "resource_type": {
+              "type": "string",
+              "description": "Filter by resource type (document, script, xhr, fetch, etc.)"
+            },
+            "url_pattern": {
+              "type": "string",
+              "description": "Regex pattern to filter by URL"
+            },
+            "clear": {
+              "type": "boolean",
+              "description": "Clear log after retrieving"
+            },
+            "session_id": {
+              "type": "string",
+              "description": "Optional session id (default: default)"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "webscope_record_start",
+        "description": "Start recording browser actions for later replay.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string",
+              "description": "Optional session id (default: default)"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "webscope_record_stop",
+        "description": "Stop recording browser actions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string",
+              "description": "Optional session id (default: default)"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "webscope_record_export",
+        "description": "Export recorded actions as a JSON array.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string",
+              "description": "Optional session id (default: default)"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "webscope_replay",
+        "description": "Replay a list of recorded actions.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "actions": {
+              "type": "array",
+              "description": "Array of recorded actions. If omitted, replays last recording."
+            },
+            "session_id": {
+              "type": "string",
+              "description": "Optional session id (default: default)"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "webscope_devices",
+        "description": "List available device profiles for mobile/tablet emulation.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
         }
       }
     }

@@ -20,6 +20,9 @@ function parseArgs() {
     cols: null,
     port: null,
     timeout: null,
+    device: null,
+    proxy: null,
+    record: false,
     help: false
   };
 
@@ -49,9 +52,8 @@ function parseArgs() {
         
       case '--rows':
       case '-r':
-        // Deprecated: height is dynamic (grows to fit content). Ignored.
         console.error('Warning: --rows is deprecated. Height is dynamic (grows to fit content).');
-        args[++i]; // consume the value
+        args[++i];
         break;
         
       case '--port':
@@ -62,6 +64,19 @@ function parseArgs() {
       case '--timeout':
       case '-t':
         options.timeout = parseInt(args[++i]) || 30000;
+        break;
+
+      case '--device':
+      case '-d':
+        options.device = args[++i];
+        break;
+
+      case '--proxy':
+        options.proxy = args[++i];
+        break;
+
+      case '--record':
+        options.record = true;
         break;
         
       case '--help':
@@ -85,6 +100,7 @@ function parseArgs() {
   if (options.port === null) options.port = parseInt(process.env.WEBSCOPE_PORT) || 3000;
   if (options.cols === null) options.cols = parseInt(process.env.WEBSCOPE_COLS) || 100;
   if (options.timeout === null) options.timeout = parseInt(process.env.WEBSCOPE_TIMEOUT) || 30000;
+  if (!options.proxy) options.proxy = process.env.WEBSCOPE_PROXY || null;
 
   return options;
 }
@@ -106,6 +122,9 @@ OPTIONS:
   --rows, -r <number>                (deprecated, height is dynamic)
   --port, -p <number>                Server port (default: 3000)
   --timeout, -t <ms>                 Request timeout in ms (default: 30000)
+  --device, -d <name>                Device profile (iphone14, pixel7, ipadpro, etc.)
+  --proxy <url>                      HTTP/SOCKS proxy URL
+  --record                           Record actions for replay (interactive mode)
   --interactive, -i                  Interactive REPL mode
   --json, -j                         JSON output format
   --serve, -s                        Start HTTP server
@@ -117,12 +136,15 @@ ENVIRONMENT VARIABLES:
   WEBSCOPE_TIMEOUT                    Request timeout in ms (overridden by --timeout)
   WEBSCOPE_API_KEY                    Require this key on all HTTP requests
   WEBSCOPE_CORS_ORIGIN                Allowed CORS origin for the HTTP server (default: *)
+  WEBSCOPE_PROXY                      HTTP/SOCKS proxy URL (overridden by --proxy)
 
 EXAMPLES:
   webscope https://example.com
   webscope --interactive https://github.com
   webscope --json --cols 120 https://news.ycombinator.com
   webscope --serve --port 8080
+  webscope --device iphone14 https://example.com
+  webscope --proxy http://proxy:8080 https://example.com
 
 INTERACTIVE COMMANDS:
   click <ref>                        Click element by reference number
@@ -134,6 +156,11 @@ INTERACTIVE COMMANDS:
   region <r1> <c1> <r2> <c2>        Read text from grid region
   navigate <url>                     Navigate to new URL
   screenshot [filename]              Take screenshot (for debugging)
+  find <query>                       Search elements by text
+  diff                               Show changes since last snapshot
+  record                             Toggle action recording
+  replay                             Replay recorded actions
+  network [filter]                   Show network log
   help                               Show interactive commands
   quit, exit                         Exit interactive mode
 `);
@@ -143,8 +170,9 @@ INTERACTIVE COMMANDS:
 async function render(url, options) {
   const browser = new AgentBrowser({
     cols: options.cols,
-
-    headless: true
+    headless: true,
+    device: options.device,
+    proxy: options.proxy,
   });
 
   try {
@@ -182,8 +210,9 @@ async function render(url, options) {
 async function interactive(url, options) {
   const browser = new AgentBrowser({
     cols: options.cols,
-
-    headless: true
+    headless: true,
+    device: options.device,
+    proxy: options.proxy,
   });
 
   const rl = readline.createInterface({
@@ -203,6 +232,11 @@ async function interactive(url, options) {
       console.log(`\\nElements: ${Object.keys(result.elements || {}).length} interactive elements found`);
     }
     
+    if (options.record) {
+      browser.startRecording();
+      console.log('Recording enabled — actions will be captured for replay');
+    }
+
     console.log(`\\nType 'help' for commands, 'quit' to exit`);
     rl.prompt();
 
@@ -352,6 +386,76 @@ Interactive Commands:
           case 'clear':
             console.clear();
             break;
+
+          case 'find':
+            if (parts.length < 2) {
+              console.log('Usage: find <query>');
+            } else {
+              const q = parts.slice(1).join(' ');
+              const matches = browser.find(q);
+              if (matches.length === 0) {
+                console.log(`No elements matching "${q}"`);
+              } else {
+                matches.forEach(m => {
+                  console.log(`[${m.ref}] (score:${m.score}) ${m.element.semantic}: ${m.element.text || '(no text)'}`);
+                });
+              }
+            }
+            break;
+
+          case 'diff':
+            try {
+              const d = browser.diff();
+              console.log(`+${d.summary.addedCount} added, -${d.summary.removedCount} removed, ~${d.summary.changedCount} changed`);
+              for (const [ref, el] of Object.entries(d.added)) console.log(`  + [${ref}] ${el.semantic}: ${el.text || ''}`);
+              for (const [ref, el] of Object.entries(d.removed)) console.log(`  - [${ref}] ${el.semantic}: ${el.text || ''}`);
+              for (const [ref, ch] of Object.entries(d.changed)) console.log(`  ~ [${ref}] ${ch.before.text || ''} → ${ch.after.text || ''}`);
+            } catch (e) {
+              console.log(e.message);
+            }
+            break;
+
+          case 'record':
+            if (browser._recording) {
+              const out = browser.stopRecording();
+              console.log(`Recording stopped. ${out.actionCount} actions captured.`);
+            } else {
+              browser.startRecording();
+              console.log('Recording started.');
+            }
+            break;
+
+          case 'replay':
+            try {
+              const out = await browser.replay();
+              console.log(`Replayed ${out.replayed}/${out.total} actions.`);
+            } catch (e) {
+              console.log(e.message);
+            }
+            break;
+
+          case 'network':
+            const netLog = browser.getNetworkLog({ type: parts[1] });
+            console.log(`${netLog.length} entries:`);
+            netLog.slice(-20).forEach(e => {
+              if (e.type === 'request') {
+                console.log(`  → ${e.method} ${e.url}`);
+              } else {
+                console.log(`  ← ${e.status} ${e.url}`);
+              }
+            });
+            break;
+
+          case 'evaluate':
+          case 'eval':
+            if (parts.length < 2) {
+              console.log('Usage: evaluate <expression>');
+            } else {
+              const expr = parts.slice(1).join(' ');
+              const evalResult = await browser.evaluate(expr);
+              console.log(JSON.stringify(evalResult, null, 2));
+            }
+            break;
             
           case 'quit':
           case 'exit':
@@ -405,11 +509,24 @@ async function serve(options) {
     console.log(`  POST /scroll       - Scroll page`);
     console.log(`  POST /select       - Select dropdown option`);
     console.log(`  POST /press        - Press keyboard key`);
+    console.log(`  POST /upload       - Upload file`);
     console.log(`  POST /waitFor      - Wait for selector/text/URL`);
     console.log(`  POST /assertField  - Validate field value`);
+    console.log(`  POST /evaluate     - Execute JavaScript`);
+    console.log(`  POST /batch        - Batch operations`);
+    console.log(`  POST /find         - Semantic element search`);
+    console.log(`  POST /headers      - Set session headers`);
     console.log(`  POST /saveState    - Save browser storage state`);
     console.log(`  POST /loadState    - Load browser storage state`);
+    console.log(`  POST /record/start - Start recording`);
+    console.log(`  POST /record/stop  - Stop recording`);
+    console.log(`  GET  /record/export - Export recording`);
+    console.log(`  POST /replay       - Replay actions`);
     console.log(`  GET  /snapshot     - Get current state`);
+    console.log(`  GET  /diff         - Element diff`);
+    console.log(`  GET  /devices      - List device profiles`);
+    console.log(`  GET  /network      - Network log`);
+    console.log(`  GET  /metrics      - Prometheus metrics`);
     console.log(`  GET  /health       - Health check`);
   });
 }

@@ -10,12 +10,12 @@
  * Communicates over stdio using JSON-RPC 2.0.
  */
 
-const { AgentBrowser } = require('../src/browser');
+const { AgentBrowser, DEVICE_ALIASES } = require('../src/browser');
 const { ensureBrowser } = require('../src/ensure-browser');
 
 const SERVER_INFO = {
   name: 'webscope',
-  version: '0.3.0',
+  version: '1.0.0',
 };
 
 const SESSION_NOTE = 'Optional session_id to isolate state across flows. Defaults to "default".';
@@ -29,6 +29,8 @@ const TOOLS = [
       properties: {
         url: { type: 'string', description: 'The URL to navigate to' },
         cols: { type: 'number', description: 'Grid width in characters (default: 120)' },
+        headers: { type: 'object', description: 'Custom HTTP headers to send with the request (e.g., {"Authorization": "Bearer token"})' },
+        device: { type: 'string', description: 'Device profile for viewport/UA emulation (e.g., "iphone14", "pixel7", "ipadpro"). Use webscope_devices to list options.' },
         session_id: { type: 'string', description: SESSION_NOTE },
         retries: { type: 'number', description: 'Retry attempts for flaky transitions' },
         retry_delay_ms: { type: 'number', description: 'Delay between retries in ms' },
@@ -209,6 +211,126 @@ const TOOLS = [
       required: ['ref', 'expected'],
     },
   },
+  {
+    name: 'webscope_evaluate',
+    description: 'Execute a JavaScript expression in the browser page and return the result. The script is evaluated in the page context. Returns JSON-serializable results only.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        script: { type: 'string', description: 'JavaScript expression to evaluate in the page (e.g., "document.title" or "document.querySelectorAll(\'a\').length")' },
+        session_id: { type: 'string', description: SESSION_NOTE },
+      },
+      required: ['script'],
+    },
+  },
+  {
+    name: 'webscope_batch',
+    description: 'Execute multiple actions in sequence. Stops on first error. Each action: { action: "click"|"type"|"navigate"|..., params: {...} }',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        actions: {
+          type: 'array',
+          description: 'Array of actions to execute sequentially',
+          items: {
+            type: 'object',
+            properties: {
+              action: { type: 'string', enum: ['navigate', 'click', 'type', 'select', 'scroll', 'press', 'upload', 'snapshot', 'waitFor', 'evaluate'], description: 'Action to perform' },
+              params: { type: 'object', description: 'Parameters for the action' },
+            },
+            required: ['action'],
+          },
+        },
+        session_id: { type: 'string', description: SESSION_NOTE },
+      },
+      required: ['actions'],
+    },
+  },
+  {
+    name: 'webscope_diff',
+    description: 'Compare the current snapshot against the previous one. Shows added, removed, and changed interactive elements. Useful for detecting page changes after an action.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        session_id: { type: 'string', description: SESSION_NOTE },
+      },
+    },
+  },
+  {
+    name: 'webscope_find',
+    description: 'Search for interactive elements by natural language query. Scores elements by keyword match against text, semantic role, and tag. Returns ranked results.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Natural language search query (e.g., "login button", "email input", "submit")' },
+        session_id: { type: 'string', description: SESSION_NOTE },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'webscope_network',
+    description: 'Get the network request/response log for the current session. Optionally filter by type, resourceType, or URL pattern.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['request', 'response'], description: 'Filter by entry type' },
+        resource_type: { type: 'string', description: 'Filter by resource type (document, script, stylesheet, image, xhr, fetch, etc.)' },
+        url_pattern: { type: 'string', description: 'Regex pattern to filter by URL' },
+        clear: { type: 'boolean', description: 'Clear the log after retrieving (default: false)' },
+        session_id: { type: 'string', description: SESSION_NOTE },
+      },
+    },
+  },
+  {
+    name: 'webscope_record_start',
+    description: 'Start recording browser actions for later replay. Actions (navigate, click, type, etc.) are captured automatically.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        session_id: { type: 'string', description: SESSION_NOTE },
+      },
+    },
+  },
+  {
+    name: 'webscope_record_stop',
+    description: 'Stop recording browser actions.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        session_id: { type: 'string', description: SESSION_NOTE },
+      },
+    },
+  },
+  {
+    name: 'webscope_record_export',
+    description: 'Export recorded actions as a JSON array. Can be saved and replayed later.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        session_id: { type: 'string', description: SESSION_NOTE },
+      },
+    },
+  },
+  {
+    name: 'webscope_replay',
+    description: 'Replay a list of recorded actions. If no actions provided, replays the last recording.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        actions: { type: 'array', description: 'Array of recorded actions to replay (from record_export). If omitted, replays current recording.' },
+        session_id: { type: 'string', description: SESSION_NOTE },
+      },
+    },
+  },
+  {
+    name: 'webscope_devices',
+    description: 'List available device profiles for mobile/tablet emulation.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
 ];
 
 // ─── Browser Sessions ───────────────────────────────────────────────────────
@@ -225,9 +347,18 @@ async function getBrowser(args = {}) {
   let browser = sessions.get(sessionId);
 
   if (!browser) {
-    browser = new AgentBrowser({ cols: args.cols || 120, headless: true });
+    browser = new AgentBrowser({
+      cols: args.cols || 120,
+      headless: true,
+      headers: args.headers || {},
+      device: args.device || null,
+      proxy: args.proxy || null,
+    });
     await browser.launch();
     sessions.set(sessionId, browser);
+  } else {
+    // Apply per-call header overrides to existing sessions
+    if (args.headers) browser.setHeaders(args.headers);
   }
 
   return { browser, sessionId };
@@ -296,11 +427,15 @@ async function executeTool(name, args = {}) {
     return JSON.stringify(out, null, 2);
   }
 
+  if (name === 'webscope_devices') {
+    return JSON.stringify(AgentBrowser.getDeviceList(), null, 2);
+  }
+
   const { browser: b, sessionId } = await getBrowser(args);
 
   switch (name) {
     case 'webscope_navigate': {
-      const result = await b.navigate(args.url, retryOptions(args));
+      const result = await b.navigate(args.url, { ...retryOptions(args), headers: args.headers });
       return formatResult(result);
     }
     case 'webscope_click': {
@@ -357,6 +492,68 @@ async function executeTool(name, args = {}) {
         attribute: args.attribute,
       });
       return `ASSERT ${out.pass ? 'PASS' : 'FAIL'} | ref=${out.ref} | comparator=${out.comparator} | expected="${out.expected}" | actual="${out.actual}" | selector=${out.selector}`;
+    }
+    case 'webscope_evaluate': {
+      const result = await b.evaluate(args.script);
+      return JSON.stringify({ result }, null, 2);
+    }
+    case 'webscope_batch': {
+      const result = await b.batch(args.actions);
+      // Format: show final snapshot if last step succeeded
+      const lastStep = result.steps[result.steps.length - 1];
+      let output = `Batch: ${result.completed}/${result.total} steps completed\n`;
+      for (const step of result.steps) {
+        output += `  Step ${step.step}: ${step.action} → ${step.success ? 'OK' : 'FAIL: ' + step.error}\n`;
+      }
+      if (lastStep?.success && lastStep.result?.view) {
+        output += '\n' + formatResult(lastStep.result);
+      }
+      return output;
+    }
+    case 'webscope_diff': {
+      const d = b.diff();
+      let output = `Diff: +${d.summary.addedCount} added, -${d.summary.removedCount} removed, ~${d.summary.changedCount} changed\n`;
+      for (const [ref, el] of Object.entries(d.added)) {
+        output += `  + [${ref}] ${el.semantic}: ${el.text || '(no text)'}\n`;
+      }
+      for (const [ref, el] of Object.entries(d.removed)) {
+        output += `  - [${ref}] ${el.semantic}: ${el.text || '(no text)'}\n`;
+      }
+      for (const [ref, ch] of Object.entries(d.changed)) {
+        output += `  ~ [${ref}] ${ch.before.text || '(no text)'} → ${ch.after.text || '(no text)'}\n`;
+      }
+      return output;
+    }
+    case 'webscope_find': {
+      const results = b.find(args.query);
+      if (results.length === 0) return `No elements matching "${args.query}"`;
+      return results.map(r => `[${r.ref}] (score:${r.score}) ${r.element.semantic}: ${r.element.text || '(no text)'}`).join('\n');
+    }
+    case 'webscope_network': {
+      const log = b.getNetworkLog({
+        type: args.type,
+        resourceType: args.resource_type,
+        urlPattern: args.url_pattern,
+      });
+      if (args.clear) b.clearNetworkLog();
+      return JSON.stringify({ count: log.length, entries: log.slice(-100) }, null, 2);
+    }
+    case 'webscope_record_start': {
+      const out = b.startRecording();
+      return `Recording started for session "${sessionId}"`;
+    }
+    case 'webscope_record_stop': {
+      const out = b.stopRecording();
+      return `Recording stopped. ${out.actionCount} actions captured.`;
+    }
+    case 'webscope_record_export': {
+      const actions = b.exportRecording();
+      return JSON.stringify(actions, null, 2);
+    }
+    case 'webscope_replay': {
+      const out = await b.replay(args.actions);
+      return `Replayed ${out.replayed}/${out.total} actions.\n` +
+        out.results.map((r, i) => `  Step ${i}: ${r.action} → ${r.success ? 'OK' : 'FAIL: ' + r.error}`).join('\n');
     }
     default:
       throw new Error(`Unknown tool: ${name}`);

@@ -7,6 +7,18 @@ const { chromium } = require('playwright');
 const DEFAULT_VIEWPORT = { width: 1280, height: 800 };
 const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
+const DEVICE_ALIASES = {
+  'iphone14': 'iPhone 14',
+  'iphone14pro': 'iPhone 14 Pro Max',
+  'iphone15': 'iPhone 15',
+  'pixel7': 'Pixel 7',
+  'pixel5': 'Pixel 5',
+  'ipadmini': 'iPad Mini',
+  'ipadpro': 'iPad Pro 11',
+  'galaxys9': 'Galaxy S9+',
+  'galaxytabs4': 'Galaxy Tab S4',
+};
+
 const { render } = require('./renderer');
 
 class AgentBrowser {
@@ -17,11 +29,18 @@ class AgentBrowser {
     this.context = null;
     this.page = null;
     this.lastResult = null;
+    this.previousResult = null;
     this.headless = options.headless !== false;
     this.charH = 16; // default, updated after first render
     this.defaultTimeout = options.timeout || 30000;
     this.defaultRetries = options.retries ?? 2;
     this.defaultRetryDelayMs = options.retryDelayMs ?? 250;
+    this.headers = options.headers || {};
+    this.proxy = options.proxy || null;
+    this.device = options.device || null;
+    this.networkLog = [];
+    this._recording = false;
+    this._recordedActions = [];
   }
 
   async _withRetries(actionName, fn, options = {}) {
@@ -43,10 +62,28 @@ class AgentBrowser {
   }
 
   _contextOptions(storageStatePath = null) {
+    // Resolve device profile
+    let deviceConfig = {};
+    if (this.device) {
+      const { devices } = require('playwright');
+      const deviceName = DEVICE_ALIASES[this.device] || this.device;
+      if (devices[deviceName]) {
+        deviceConfig = devices[deviceName];
+      } else {
+        throw new Error(`Unknown device: "${this.device}". Use getDeviceList() to see available devices.`);
+      }
+    }
+
     const opts = {
       viewport: DEFAULT_VIEWPORT,
       userAgent: DEFAULT_USER_AGENT,
+      ...deviceConfig,
     };
+
+    if (Object.keys(this.headers).length > 0) {
+      opts.extraHTTPHeaders = { ...this.headers };
+    }
+
     if (storageStatePath) {
       opts.storageState = storageStatePath;
     }
@@ -57,14 +94,44 @@ class AgentBrowser {
     this.context = await this.browser.newContext(this._contextOptions(storageStatePath));
     this.page = await this.context.newPage();
     this.page.setDefaultTimeout(this.defaultTimeout);
+    this._attachNetworkListeners();
+  }
+
+  _attachNetworkListeners() {
+    this.page.on('request', (request) => {
+      this.networkLog.push({
+        type: 'request',
+        url: request.url(),
+        method: request.method(),
+        headers: request.headers(),
+        resourceType: request.resourceType(),
+        timestamp: Date.now(),
+      });
+    });
+    this.page.on('response', (response) => {
+      this.networkLog.push({
+        type: 'response',
+        url: response.url(),
+        status: response.status(),
+        statusText: response.statusText(),
+        headers: response.headers(),
+        timestamp: Date.now(),
+      });
+    });
   }
 
   async launch(options = {}) {
     if (!this.browser) {
-      this.browser = await chromium.launch({
+      const launchOpts = {
         headless: this.headless,
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      });
+      };
+      if (this.proxy) {
+        launchOpts.proxy = typeof this.proxy === 'string'
+          ? { server: this.proxy }
+          : this.proxy;
+      }
+      this.browser = await chromium.launch(launchOpts);
     }
 
     if (!this.context) {
@@ -78,28 +145,32 @@ class AgentBrowser {
     if (!this.page) await this.launch();
     this.scrollY = 0;
 
+    // Per-request header overrides
+    if (options.headers && Object.keys(options.headers).length > 0) {
+      await this.page.setExtraHTTPHeaders({ ...this.headers, ...options.headers });
+    }
+
     await this._withRetries('navigate', async () => {
-      // Use domcontentloaded + a short settle, not networkidle (SPAs never go idle)
       await this.page.goto(url, { waitUntil: 'domcontentloaded', timeout: options.timeoutMs || this.defaultTimeout });
-      // Wait for network to settle or 3s max — whichever comes first
       await Promise.race([
         this.page.waitForLoadState('networkidle').catch(() => {}),
         new Promise(r => setTimeout(r, 3000)),
       ]);
     }, options);
 
+    this._recordAction('navigate', { url });
     return await this.snapshot();
   }
 
   async snapshot() {
     if (!this.page) throw new Error('No page open. Call navigate() first.');
+    this.previousResult = this.lastResult;
     this.lastResult = await render(this.page, {
       cols: this.cols,
       scrollY: this.scrollY,
     });
     this.lastResult.meta.url = this.page.url();
     this.lastResult.meta.title = await this.page.title();
-    // Cache measured charH for scrolling
     if (this.lastResult.meta.charH) this.charH = this.lastResult.meta.charH;
     return this.lastResult;
   }
@@ -110,6 +181,7 @@ class AgentBrowser {
       await this.page.click(el.selector);
       await this._settle();
     }, options);
+    this._recordAction('click', { ref });
     return await this.snapshot();
   }
 
@@ -119,6 +191,7 @@ class AgentBrowser {
       await this.page.click(el.selector);
       await this.page.fill(el.selector, text);
     }, options);
+    this._recordAction('type', { ref, text });
     return await this.snapshot();
   }
 
@@ -157,6 +230,7 @@ class AgentBrowser {
       await this.page.keyboard.press(key);
       await this._settle();
     }, options);
+    this._recordAction('press', { key });
     return await this.snapshot();
   }
 
@@ -174,12 +248,12 @@ class AgentBrowser {
     await this._withRetries(`select ref=${ref}`, async () => {
       await this.page.selectOption(el.selector, value);
     }, options);
+    this._recordAction('select', { ref, value });
     return await this.snapshot();
   }
 
   async scroll(direction = 'down', amount = 1) {
-    // Scroll by roughly one "page" worth of content
-    const pageH = 40 * this.charH; // ~40 lines of content
+    const pageH = 40 * this.charH;
     const delta = amount * pageH;
     if (direction === 'down') {
       this.scrollY += delta;
@@ -190,6 +264,7 @@ class AgentBrowser {
     }
     await this.page.evaluate((y) => window.scrollTo(0, y), this.scrollY);
     await this.page.waitForTimeout(500);
+    this._recordAction('scroll', { direction, amount });
     return await this.snapshot();
   }
 
@@ -204,7 +279,207 @@ class AgentBrowser {
   }
 
   async evaluate(fn, arg) {
-    return await this.page.evaluate(fn, arg);
+    try {
+      const result = await Promise.race([
+        this.page.evaluate(fn, arg),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('evaluate timed out')), this.defaultTimeout)),
+      ]);
+      // Ensure result is JSON-serializable
+      return JSON.parse(JSON.stringify(result ?? null));
+    } catch (err) {
+      throw new Error(`evaluate failed: ${err.message}`);
+    }
+  }
+
+  /**
+   * Set session-level HTTP headers (merged with constructor headers)
+   */
+  setHeaders(headers) {
+    this.headers = { ...this.headers, ...headers };
+    if (this.page) {
+      this.page.setExtraHTTPHeaders({ ...this.headers });
+    }
+  }
+
+  /**
+   * Diff the current snapshot against the previous one.
+   * Returns { added, removed, changed } element maps.
+   */
+  diff() {
+    if (!this.lastResult) throw new Error('No snapshot. Navigate first.');
+    if (!this.previousResult) throw new Error('No previous snapshot to diff against. Perform at least two snapshots.');
+
+    const prev = this.previousResult.elements || {};
+    const curr = this.lastResult.elements || {};
+    const prevKeys = new Set(Object.keys(prev));
+    const currKeys = new Set(Object.keys(curr));
+
+    const added = {};
+    const removed = {};
+    const changed = {};
+
+    for (const key of currKeys) {
+      if (!prevKeys.has(key)) {
+        added[key] = curr[key];
+      } else if (JSON.stringify(prev[key]) !== JSON.stringify(curr[key])) {
+        changed[key] = { before: prev[key], after: curr[key] };
+      }
+    }
+    for (const key of prevKeys) {
+      if (!currKeys.has(key)) {
+        removed[key] = prev[key];
+      }
+    }
+
+    return {
+      added,
+      removed,
+      changed,
+      summary: {
+        addedCount: Object.keys(added).length,
+        removedCount: Object.keys(removed).length,
+        changedCount: Object.keys(changed).length,
+      },
+    };
+  }
+
+  /**
+   * Execute a batch of actions sequentially. Stops on first error.
+   * Each action: { action: 'click'|'type'|..., params: {...} }
+   */
+  async batch(actions) {
+    if (!Array.isArray(actions) || actions.length === 0) {
+      throw new Error('batch requires a non-empty array of actions');
+    }
+
+    const results = [];
+    for (let i = 0; i < actions.length; i++) {
+      const { action, params = {} } = actions[i];
+      try {
+        let result;
+        switch (action) {
+          case 'navigate': result = await this.navigate(params.url, params); break;
+          case 'click': result = await this.click(params.ref, params); break;
+          case 'type': result = await this.type(params.ref, params.text, params); break;
+          case 'select': result = await this.select(params.ref, params.value, params); break;
+          case 'scroll': result = await this.scroll(params.direction, params.amount); break;
+          case 'press': result = await this.press(params.key, params); break;
+          case 'upload': result = await this.upload(params.ref, params.path || params.files, params); break;
+          case 'snapshot': result = await this.snapshot(); break;
+          case 'waitFor': result = await this.waitFor(params); break;
+          case 'evaluate': result = await this.evaluate(params.script || params.fn, params.arg); break;
+          default: throw new Error(`Unknown action: ${action}`);
+        }
+        results.push({ step: i, action, success: true, result });
+      } catch (err) {
+        results.push({ step: i, action, success: false, error: err.message });
+        break; // stop on first error
+      }
+    }
+
+    return { steps: results, completed: results.length, total: actions.length };
+  }
+
+  /**
+   * Semantic search for elements by natural language query.
+   * Scores elements by keyword overlap with their text/semantic/tag.
+   */
+  find(query) {
+    if (!this.lastResult) throw new Error('No snapshot. Navigate first.');
+    const elements = this.lastResult.elements || {};
+    const queryTerms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const scored = [];
+
+    for (const [ref, el] of Object.entries(elements)) {
+      const corpus = [
+        el.text || '',
+        el.semantic || '',
+        el.tag || '',
+        el.selector || '',
+      ].join(' ').toLowerCase();
+
+      let score = 0;
+      for (const term of queryTerms) {
+        if (corpus.includes(term)) score++;
+      }
+      if (score > 0) {
+        scored.push({ ref: Number(ref), score, element: el });
+      }
+    }
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored;
+  }
+
+  // ─── Recording ────────────────────────────────────────────────────────
+
+  startRecording() {
+    this._recording = true;
+    this._recordedActions = [];
+    return { recording: true };
+  }
+
+  stopRecording() {
+    this._recording = false;
+    return { recording: false, actionCount: this._recordedActions.length };
+  }
+
+  exportRecording() {
+    return [...this._recordedActions];
+  }
+
+  async replay(actions) {
+    const toReplay = actions || this._recordedActions;
+    if (!toReplay.length) throw new Error('No actions to replay');
+
+    const results = [];
+    for (const { action, params } of toReplay) {
+      try {
+        let result;
+        switch (action) {
+          case 'navigate': result = await this.navigate(params.url, params); break;
+          case 'click': result = await this.click(params.ref, params); break;
+          case 'type': result = await this.type(params.ref, params.text, params); break;
+          case 'select': result = await this.select(params.ref, params.value, params); break;
+          case 'scroll': result = await this.scroll(params.direction, params.amount); break;
+          case 'press': result = await this.press(params.key, params); break;
+          default: continue;
+        }
+        results.push({ action, success: true });
+      } catch (err) {
+        results.push({ action, success: false, error: err.message });
+        break;
+      }
+    }
+    return { replayed: results.length, total: toReplay.length, results };
+  }
+
+  _recordAction(action, params) {
+    if (this._recording) {
+      this._recordedActions.push({ action, params, timestamp: Date.now() });
+    }
+  }
+
+  // ─── Network ──────────────────────────────────────────────────────────
+
+  getNetworkLog(filter = {}) {
+    let log = [...this.networkLog];
+    if (filter.type) log = log.filter(e => e.type === filter.type);
+    if (filter.resourceType) log = log.filter(e => e.resourceType === filter.resourceType);
+    if (filter.urlPattern) {
+      const re = new RegExp(filter.urlPattern);
+      log = log.filter(e => re.test(e.url));
+    }
+    return log;
+  }
+
+  clearNetworkLog() {
+    this.networkLog = [];
+    return { cleared: true };
+  }
+
+  static getDeviceList() {
+    return Object.entries(DEVICE_ALIASES).map(([alias, name]) => ({ alias, name }));
   }
 
   /**
@@ -233,6 +508,8 @@ class AgentBrowser {
     await this._createContext(path);
     this.scrollY = 0;
     this.lastResult = null;
+    this.previousResult = null;
+    this.networkLog = [];
     return { loaded: true, path };
   }
 
@@ -414,4 +691,4 @@ class AgentBrowser {
   }
 }
 
-module.exports = { AgentBrowser };
+module.exports = { AgentBrowser, DEVICE_ALIASES };
