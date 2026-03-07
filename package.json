@@ -1,6 +1,6 @@
 {
   "name": "webscope",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "A text-grid web renderer for AI agents — see the web without screenshots",
   "main": "src/browser.js",
   "bin": {
