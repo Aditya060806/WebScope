@@ -8,6 +8,7 @@
     "webscope-mcp": "mcp/index.js"
   },
   "scripts": {
+    "postinstall": "node -e \"try{require('child_process').execFileSync(process.execPath,[require.resolve('playwright/cli.js'),'install','chromium'],{stdio:'inherit'})}catch(e){}\"",
     "start": "node src/cli.js",
     "serve": "node src/server.js",
     "test": "node test/test-form.js && node test/test-live.js && node test/test-ats-e2e.js",

@@ -36,7 +36,12 @@ Screenshots are bulky and need expensive vision models to interpret. Accessibili
 
 ```bash
 npm install -g webscope
-npx playwright install chromium
+```
+
+Chromium downloads automatically on install. If it doesn't (corporate proxy, CI, etc.), run it manually:
+
+```bash
+webscope install
 ```
 
 You're ready. Try it out:

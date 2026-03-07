@@ -69,6 +69,10 @@ function parseArgs() {
         options.help = true;
         break;
         
+      case 'install':
+        options.install = true;
+        break;
+
       default:
         if (!arg.startsWith('-') && !options.url) {
           options.url = arg;
@@ -95,6 +99,7 @@ USAGE:
   webscope --interactive <url>      Start interactive REPL mode
   webscope --json <url>             Output as JSON (view + elements)
   webscope --serve                  Start HTTP API server
+  webscope install                  Install Chromium browser
 
 OPTIONS:
   --cols, -c <number>                Grid width in characters (default: 100)
@@ -416,6 +421,16 @@ async function main() {
   if (options.help || (process.argv.length === 2)) {
     showHelp();
     return;
+  }
+
+  if (options.install) {
+    const { spawnSync } = require('child_process');
+    let cliPath;
+    try { cliPath = require.resolve('playwright/cli.js'); } catch { /* fallback */ }
+    const result = cliPath
+      ? spawnSync(process.execPath, [cliPath, 'install', 'chromium'], { stdio: 'inherit' })
+      : spawnSync('npx', ['playwright', 'install', 'chromium'], { stdio: 'inherit', shell: true });
+    process.exit(result.status || 0);
   }
 
   await ensureBrowser();
