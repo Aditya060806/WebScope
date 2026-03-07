@@ -4,6 +4,8 @@
 # Coverage directory used by tools like istanbul
 # Dependencies
 # Dependency directories
+# Site build output
+site/dist/
 # DynamoDB Local files
 # FuseBox cache
 # Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
@@ -34,6 +36,10 @@
 *.png
 # Allow logo images in public/
 !public/*.png
+# Allow site assets
+!site/public/
+!site/public/assets/
+!site/public/**/*.png
 *.seed
 *.tgz
 .DS_Store

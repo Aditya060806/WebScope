@@ -1,0 +1,10 @@
+# Exclude site/landing page from npm package
+site/
+canvas/
+docs/
+test/
+.github/
+.vscode/
+*.png
+*.jpg
+*.jpeg
