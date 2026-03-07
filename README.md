@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/webscope-logo(narrow).png" alt="WebScope" width="400" />
+<img src="public/webscope-logo%28narrow%29.png" alt="WebScope" width="400" />
 
 ### Give your AI agent eyes — without the vision model.
 
