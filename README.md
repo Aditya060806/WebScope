@@ -24,9 +24,9 @@ Every existing approach to giving LLMs web access has a tradeoff that hurts:
 | Approach | Payload Size | External Dependency | Latency | Layout Fidelity | Token Cost |
 |----------|-------------|---------------------|---------|-----------------|------------|
 | Screenshot + Vision | ~1 MB | Vision model | High | Pixel-level | ~1,000+ |
-| Accessibility Tree | ~5 KB | None | Low | None | ~50–200 |
-| Raw HTML | ~100 KB+ | None | Low | None | ~2,000+ |
-| **WebScope** | **~2–5 KB** | **None** | **Low** | **Spatial** | **~50–150** |
+| Accessibility Tree | ~5 KB | None | Low | ❌ Lost | ~50–200 |
+| Raw HTML | ~100 KB+ | None | Low | ❌ Lost | ~2,000+ |
+| **WebScope** | **~2–5 KB** | **None** | **Low** | **✅ Preserved** | **~50–150** |
 
 Screenshots are bulky and need expensive vision models to interpret. Accessibility trees and raw HTML are fast but throw away *where* things are on the page — layout, proximity, visual grouping. WebScope keeps the spatial structure intact, in a format that's native to how LLMs already think: **text**.
 
