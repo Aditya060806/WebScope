@@ -21,6 +21,11 @@ const DEVICE_ALIASES = {
 
 const { render } = require('./renderer');
 
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 class AgentBrowser {
   constructor(options = {}) {
     this.cols = options.cols || 120;
@@ -39,6 +44,10 @@ class AgentBrowser {
     this.proxy = options.proxy || null;
     this.device = options.device || null;
     this.networkLog = [];
+    this.networkLogLimit = parsePositiveInt(
+      options.networkLogLimit ?? process.env.WEBSCOPE_NETWORK_LOG_LIMIT,
+      2000
+    );
     this._recording = false;
     this._recordedActions = [];
   }
@@ -99,7 +108,7 @@ class AgentBrowser {
 
   _attachNetworkListeners() {
     this.page.on('request', (request) => {
-      this.networkLog.push({
+      this._pushNetworkEvent({
         type: 'request',
         url: request.url(),
         method: request.method(),
@@ -109,7 +118,7 @@ class AgentBrowser {
       });
     });
     this.page.on('response', (response) => {
-      this.networkLog.push({
+      this._pushNetworkEvent({
         type: 'response',
         url: response.url(),
         status: response.status(),
@@ -118,6 +127,14 @@ class AgentBrowser {
         timestamp: Date.now(),
       });
     });
+  }
+
+  _pushNetworkEvent(event) {
+    this.networkLog.push(event);
+    if (this.networkLog.length > this.networkLogLimit) {
+      const overflow = this.networkLog.length - this.networkLogLimit;
+      this.networkLog.splice(0, overflow);
+    }
   }
 
   async launch(options = {}) {

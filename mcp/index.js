@@ -20,6 +20,14 @@ const SERVER_INFO = {
 
 const SESSION_NOTE = 'Optional session_id to isolate state across flows. Defaults to "default".';
 
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+const SESSION_TTL_MS = parsePositiveInt(process.env.WEBSCOPE_SESSION_TTL_MS, 30 * 60 * 1000);
+const MAX_SESSIONS = parsePositiveInt(process.env.WEBSCOPE_MAX_SESSIONS, 20);
+
 const TOOLS = [
   {
     name: 'webscope_navigate',
@@ -337,16 +345,79 @@ const TOOLS = [
 
 /** @type {Map<string, AgentBrowser>} */
 const sessions = new Map();
+/** @type {Map<string, { createdAt: number, lastUsedAt: number }>} */
+const sessionMeta = new Map();
 
 function resolveSessionId(args = {}) {
   return (args.session_id || 'default').trim() || 'default';
 }
 
+function touchSession(sessionId) {
+  const now = Date.now();
+  const meta = sessionMeta.get(sessionId);
+  if (meta) {
+    meta.lastUsedAt = now;
+    return;
+  }
+  sessionMeta.set(sessionId, { createdAt: now, lastUsedAt: now });
+}
+
+async function evictExpiredSessions() {
+  const now = Date.now();
+  const stale = [];
+
+  for (const [sessionId] of sessions.entries()) {
+    const meta = sessionMeta.get(sessionId);
+    const lastUsedAt = meta?.lastUsedAt || 0;
+    if (!lastUsedAt || now - lastUsedAt > SESSION_TTL_MS) {
+      stale.push(sessionId);
+    }
+  }
+
+  for (const sid of stale) {
+    const browser = sessions.get(sid);
+    if (!browser) continue;
+    await browser.close();
+    sessions.delete(sid);
+    sessionMeta.delete(sid);
+  }
+}
+
+async function evictLeastRecentlyUsedSession() {
+  let candidateId = null;
+  let oldestLastUsedAt = Number.POSITIVE_INFINITY;
+
+  for (const [sessionId] of sessions.entries()) {
+    const meta = sessionMeta.get(sessionId);
+    const lastUsedAt = meta?.lastUsedAt || 0;
+    if (lastUsedAt < oldestLastUsedAt) {
+      oldestLastUsedAt = lastUsedAt;
+      candidateId = sessionId;
+    }
+  }
+
+  if (!candidateId) return null;
+
+  const browser = sessions.get(candidateId);
+  if (browser) {
+    await browser.close();
+  }
+  sessions.delete(candidateId);
+  sessionMeta.delete(candidateId);
+  return candidateId;
+}
+
 async function getBrowser(args = {}) {
+  await evictExpiredSessions();
+
   const sessionId = resolveSessionId(args);
   let browser = sessions.get(sessionId);
 
   if (!browser) {
+    if (sessions.size >= MAX_SESSIONS) {
+      await evictLeastRecentlyUsedSession();
+    }
+
     browser = new AgentBrowser({
       cols: args.cols || 120,
       headless: true,
@@ -360,6 +431,8 @@ async function getBrowser(args = {}) {
     // Apply per-call header overrides to existing sessions
     if (args.headers) browser.setHeaders(args.headers);
   }
+
+  touchSession(sessionId);
 
   return { browser, sessionId };
 }
@@ -380,13 +453,19 @@ function retryOptions(args = {}) {
 }
 
 async function listSessions() {
+  await evictExpiredSessions();
+
+  const now = Date.now();
   const out = [];
   for (const [sessionId, browser] of sessions.entries()) {
+    const meta = sessionMeta.get(sessionId);
     out.push({
       session_id: sessionId,
       url: browser.getCurrentUrl() || null,
       initialized: Boolean(browser.page),
       refs: browser.lastResult?.meta?.totalRefs ?? null,
+      age_ms: meta?.createdAt ? now - meta.createdAt : null,
+      idle_ms: meta?.lastUsedAt ? now - meta.lastUsedAt : null,
     });
   }
   return out;
@@ -398,6 +477,7 @@ async function closeSession({ session_id, all } = {}) {
     for (const [sid, browser] of sessions.entries()) {
       await browser.close();
       closed.push(sid);
+      sessionMeta.delete(sid);
     }
     sessions.clear();
     return { closed };
@@ -411,6 +491,7 @@ async function closeSession({ session_id, all } = {}) {
 
   await browser.close();
   sessions.delete(sid);
+  sessionMeta.delete(sid);
   return { closed: [sid] };
 }
 

@@ -78,6 +78,64 @@ webscope --json https://example.com
 
 ---
 
+## Docker Quick Start
+
+Run WebScope in a container with Playwright preconfigured:
+
+```bash
+docker compose up --build -d
+```
+
+Run with Redis profile (distributed rate limits + Redis key store):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.redis.yml --profile redis up --build -d
+# or
+npm run docker:up:redis
+```
+
+Check health:
+
+```bash
+curl http://localhost:3000/health
+```
+
+Call the API:
+
+```bash
+curl -X POST http://localhost:3000/navigate \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://example.com"}'
+```
+
+Stop everything:
+
+```bash
+docker compose down
+```
+
+Optional env configuration:
+
+```bash
+cp .env.docker.example .env
+# then edit .env for API keys, store backends, CORS origin, proxy, timeout
+```
+
+Use Redis-backed stores (distributed rate limit + shared keys):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.redis.yml --profile redis up --build -d
+```
+
+Or use npm helpers:
+
+```bash
+npm run docker:build
+npm run docker:run
+```
+
+---
+
 ## What Your Agent Sees
 
 ```
@@ -268,12 +326,36 @@ curl -X POST http://localhost:3000/record/stop
 curl http://localhost:3000/record/export
 curl -X POST http://localhost:3000/replay
 
+# Admin key management (requires admin scope)
+curl -H 'Authorization: Bearer admin-token' http://localhost:3000/auth/keys
+curl -X POST http://localhost:3000/auth/keys \
+  -H 'Authorization: Bearer admin-token' \
+  -d '{"token":"reader-token","id":"reader","scopes":["read"],"rate_limit":60}'
+curl -X DELETE http://localhost:3000/auth/keys \
+  -H 'Authorization: Bearer admin-token' \
+  -d '{"id":"reader"}'
+
 # State management
 curl -X POST http://localhost:3000/saveState -d '{"path": "/tmp/state.json"}'
 curl -X POST http://localhost:3000/loadState -d '{"path": "/tmp/state.json"}'
 ```
 
 > **Security:** Set `WEBSCOPE_API_KEY` to require `Authorization: Bearer <key>` on all requests. Set `WEBSCOPE_CORS_ORIGIN` to lock down cross-origin access.
+
+Advanced auth and traffic controls:
+- `WEBSCOPE_API_KEYS_JSON` enables scoped keys and per-key limits.
+- `WEBSCOPE_API_KEY_STORE=file` persists keys to disk (`WEBSCOPE_API_KEYS_FILE`) so they survive restarts.
+- `WEBSCOPE_API_KEY_STORE=redis` stores keys in Redis for shared multi-instance setups.
+- File/Redis key stores are reloaded per request so key updates propagate across running instances.
+- `WEBSCOPE_RATE_LIMIT_WINDOW_MS` + `WEBSCOPE_RATE_LIMIT_MAX` enforce request budgets.
+- `WEBSCOPE_RATE_LIMIT_STORE=redis` enables distributed rate limiting across instances.
+- `WEBSCOPE_AUDIT_LOG=true` emits structured JSON audit logs per request.
+
+Example scoped keys:
+
+```bash
+export WEBSCOPE_API_KEYS_JSON='{"admin-token":{"id":"admin","scopes":["admin","read","write"],"rate_limit":300},"reader-token":{"id":"reader","scopes":["read"],"rate_limit":60}}'
+```
 
 ---
 
@@ -329,10 +411,21 @@ Everything can be configured via CLI flags or environment variables. CLI flags a
 | `--port, -p` | `WEBSCOPE_PORT` | `3000` | `int` | HTTP server port |
 | `--cols, -c` | `WEBSCOPE_COLS` | `100` | `int` | Grid width in characters |
 | `--timeout, -t` | `WEBSCOPE_TIMEOUT` | `30000` | `int` | Navigation timeout in milliseconds |
+| — | `WEBSCOPE_NETWORK_LOG_LIMIT` | `2000` | `int` | Max network log entries retained per session |
+| — | `WEBSCOPE_MAX_SESSIONS` | `20` | `int` | Max concurrent MCP sessions before LRU eviction |
+| — | `WEBSCOPE_SESSION_TTL_MS` | `1800000` | `int` | MCP idle session TTL in milliseconds |
+| — | `WEBSCOPE_RATE_LIMIT_WINDOW_MS` | `60000` | `int` | Rate-limit window size in milliseconds |
+| — | `WEBSCOPE_RATE_LIMIT_MAX` | `120` | `int` | Max requests per window (default limit per identity) |
+| — | `WEBSCOPE_RATE_LIMIT_STORE` | `memory` | `string` | Rate-limit backend (`memory`, `redis`) |
+| — | `WEBSCOPE_REDIS_URL` | — | `string` | Redis URL used by Redis-backed rate limits and key store |
+| — | `WEBSCOPE_API_KEY_STORE` | `memory` | `string` | API key backend (`memory`, `file`, `redis`) |
+| — | `WEBSCOPE_API_KEYS_FILE` | `./state/api-keys.json` | `string` | File path for key persistence when using `file` backend |
+| — | `WEBSCOPE_AUDIT_LOG` | `true` | `bool` | Emit structured request audit logs to stdout |
 | `--device, -d` | — | — | `string` | Device profile (iphone14, pixel7, ipadpro, etc.) |
 | `--proxy` | `WEBSCOPE_PROXY` | — | `string` | HTTP/SOCKS proxy URL |
 | `--record` | — | `false` | `bool` | Record actions in interactive mode |
 | — | `WEBSCOPE_API_KEY` | — | `string` | API key required on all HTTP requests |
+| — | `WEBSCOPE_API_KEYS_JSON` | — | `json` | Scoped API key map (`id`, `scopes`, `rate_limit`) |
 | — | `WEBSCOPE_CORS_ORIGIN` | `*` | `string` | Allowed CORS origin |
 
 ---
@@ -444,8 +537,12 @@ All HTTP errors return a structured JSON response with a machine-readable code:
 | `INVALID_URL_SCHEME` | `400` | Blocked scheme (`file:`, `javascript:`, `data:`) |
 | `INVALID_JSON` | `400` | Request body is not valid JSON |
 | `BROWSER_NOT_READY` | `400` | No page loaded — call `/navigate` first |
+| `FORBIDDEN_SCOPE` | `403` | API key is valid but missing required scope (`read` or `write`) |
 | `BODY_TOO_LARGE` | `413` | Request body exceeds 1 MB |
+| `RATE_LIMITED` | `429` | Request budget exceeded for the current rate-limit window |
 | `UNAUTHORIZED` | `401` | Missing or invalid API key |
+| `KEY_STORE_ERROR` | `500` | API key backend could not be loaded (file/redis issue) |
+| `RATE_LIMIT_STORE_ERROR` | `500` | Rate-limit backend is unavailable |
 | `NOT_FOUND` | `404` | Unknown endpoint |
 | `METHOD_NOT_ALLOWED` | `405` | Incorrect HTTP method for this endpoint |
 | `INTERNAL_ERROR` | `500` | Unexpected server error |
@@ -458,17 +555,17 @@ All HTTP errors return a structured JSON response with a machine-readable code:
 # Run all tests
 npm test
 
-# Form fixture tests
+# Auth scopes + file key persistence + per-key rate limits
 npm run test:form
 
-# Live site tests — example.com, HN, Wikipedia
+# Backend outage paths (`KEY_STORE_ERROR`, `RATE_LIMIT_STORE_ERROR`)
 npm run test:live
 
-# ATS multi-step fixture test
+# Redis distributed integration (shared keys + cross-instance limits)
 npm run test:ats
 ```
 
-Test fixtures live in `test/fixtures/` — includes a comprehensive HTML form and an ATS-style multi-step application flow.
+`npm run test:ats` requires a reachable Redis instance (`redis://127.0.0.1:6379/15` by default) and is skipped automatically when Redis is unavailable.
 
 ---
 

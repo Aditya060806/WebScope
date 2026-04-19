@@ -135,6 +135,17 @@ ENVIRONMENT VARIABLES:
   WEBSCOPE_COLS                       Grid width in characters (overridden by --cols)
   WEBSCOPE_TIMEOUT                    Request timeout in ms (overridden by --timeout)
   WEBSCOPE_API_KEY                    Require this key on all HTTP requests
+  WEBSCOPE_API_KEYS_JSON              Scoped API keys JSON map (id/scopes/rate_limit)
+  WEBSCOPE_API_KEY_STORE              API key backend (memory, file, redis)
+  WEBSCOPE_API_KEYS_FILE              API key file path when using file backend
+  WEBSCOPE_RATE_LIMIT_WINDOW_MS       Rate-limit window in milliseconds
+  WEBSCOPE_RATE_LIMIT_MAX             Max requests per window per identity
+  WEBSCOPE_RATE_LIMIT_STORE           Rate-limit backend (memory, redis)
+  WEBSCOPE_REDIS_URL                  Redis URL for future shared rate-limit backend
+  WEBSCOPE_AUDIT_LOG                  Emit JSON audit logs (true/false)
+  WEBSCOPE_NETWORK_LOG_LIMIT          Max retained network events per session
+  WEBSCOPE_MAX_SESSIONS               Max MCP sessions before LRU eviction
+  WEBSCOPE_SESSION_TTL_MS             MCP idle session TTL in milliseconds
   WEBSCOPE_CORS_ORIGIN                Allowed CORS origin for the HTTP server (default: *)
   WEBSCOPE_PROXY                      HTTP/SOCKS proxy URL (overridden by --proxy)
 
@@ -526,6 +537,10 @@ async function serve(options) {
     console.log(`  GET  /diff         - Element diff`);
     console.log(`  GET  /devices      - List device profiles`);
     console.log(`  GET  /network      - Network log`);
+    console.log(`  GET  /openapi.json - OpenAPI specification`);
+    console.log(`  GET  /auth/keys    - List API keys (admin scope)`);
+    console.log(`  POST /auth/keys    - Create/update API key (admin scope)`);
+    console.log(`  DELETE /auth/keys  - Revoke API key (admin scope)`);
     console.log(`  GET  /metrics      - Prometheus metrics`);
     console.log(`  GET  /health       - Health check`);
   });

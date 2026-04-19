@@ -5,6 +5,71 @@
 const http = require('http');
 const url = require('url');
 const { AgentBrowser, DEVICE_ALIASES } = require('./browser');
+const { createRateLimitStore } = require('./rate-limit-store');
+const { createApiKeyStore } = require('./api-key-store');
+
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parseBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
+}
+
+function normalizeScopes(value) {
+  if (!value) return ['*'];
+  if (Array.isArray(value)) {
+    return value.map(v => String(v).trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value.split(',').map(v => v.trim()).filter(Boolean);
+  }
+  return ['*'];
+}
+
+function parseScopedApiKeys(raw) {
+  const keys = new Map();
+  if (!raw) return keys;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    console.error(`Invalid WEBSCOPE_API_KEYS_JSON: ${err.message}`);
+    return keys;
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    console.error('Invalid WEBSCOPE_API_KEYS_JSON: expected JSON object');
+    return keys;
+  }
+
+  let index = 1;
+  for (const [token, config] of Object.entries(parsed)) {
+    if (!token) continue;
+
+    const cfg = config && typeof config === 'object' && !Array.isArray(config)
+      ? config
+      : { scopes: config };
+
+    const scopes = normalizeScopes(cfg.scopes || cfg.scope);
+    const rateLimit = parsePositiveInt(cfg.rate_limit ?? cfg.rpm ?? cfg.limit, 0) || null;
+
+    keys.set(token, {
+      id: String(cfg.id || `key_${index++}`),
+      scopes: new Set(scopes.length ? scopes : ['*']),
+      rateLimit,
+      createdAt: Date.now(),
+    });
+  }
+
+  return keys;
+}
 
 class WebScopeServer {
   constructor(options = {}) {
@@ -16,16 +81,232 @@ class WebScopeServer {
     };
 
     this.apiKey = process.env.WEBSCOPE_API_KEY || null;
+    this.bootstrapApiKeys = parseScopedApiKeys(process.env.WEBSCOPE_API_KEYS_JSON);
+    if (this.apiKey && !this.bootstrapApiKeys.has(this.apiKey)) {
+      this.bootstrapApiKeys.set(this.apiKey, {
+        id: 'legacy_admin',
+        scopes: new Set(['*']),
+        rateLimit: null,
+        createdAt: Date.now(),
+      });
+    }
+    this.apiKeys = new Map();
+    this.apiKeysLoaded = false;
+    this.apiKeysLoadPromise = null;
+    this.apiKeyStoreType = (process.env.WEBSCOPE_API_KEY_STORE || 'memory').toLowerCase();
+    this.apiKeyStore = createApiKeyStore({
+      type: this.apiKeyStoreType,
+      filePath: process.env.WEBSCOPE_API_KEYS_FILE || undefined,
+      redisUrl: process.env.WEBSCOPE_REDIS_URL || '',
+    });
+
+    this.requireAuth = false;
+    this.refreshAuthMode();
+
+    this.rateLimitWindowMs = parsePositiveInt(process.env.WEBSCOPE_RATE_LIMIT_WINDOW_MS, 60_000);
+    this.rateLimitMax = parsePositiveInt(process.env.WEBSCOPE_RATE_LIMIT_MAX, 120);
+    this.rateLimitStore = createRateLimitStore({
+      type: process.env.WEBSCOPE_RATE_LIMIT_STORE || 'memory',
+      windowMs: this.rateLimitWindowMs,
+      redisUrl: process.env.WEBSCOPE_REDIS_URL || '',
+    });
+
+    this.auditLogEnabled = parseBoolean(process.env.WEBSCOPE_AUDIT_LOG, true);
+
     this.corsOrigin = process.env.WEBSCOPE_CORS_ORIGIN || '*';
     this.browser = null;
     this.lastActivity = Date.now();
+    this.metrics = {
+      requestsTotal: 0,
+      errors4xx: 0,
+      errors5xx: 0,
+      rateLimited: 0,
+    };
     
     // Start cleanup timer (close browser after inactivity)
     setInterval(() => {
       if (this.browser && Date.now() - this.lastActivity > 300000) { // 5 minutes
-        this.closeBrowser();
+        this.closeBrowser().catch((err) => console.error('Browser cleanup error:', err));
       }
+      this.cleanupRateBuckets().catch((err) => console.error('Rate-limit cleanup error:', err));
     }, 60000); // Check every minute
+  }
+
+  refreshAuthMode() {
+    this.requireAuth = this.apiKeys.size > 0;
+  }
+
+  normalizeApiKeyRecord(record, fallbackId = '') {
+    const scopesSource = record?.scopes instanceof Set
+      ? Array.from(record.scopes)
+      : record?.scopes ?? record?.scope;
+
+    const scopes = normalizeScopes(scopesSource);
+    const parsedRateLimit = parsePositiveInt(
+      record?.rateLimit ?? record?.rate_limit ?? record?.rpm ?? record?.limit,
+      0
+    ) || null;
+
+    return {
+      id: String(record?.id || fallbackId || ''),
+      scopes: new Set(scopes.length ? scopes : ['*']),
+      rateLimit: parsedRateLimit,
+      createdAt: typeof record?.createdAt === 'number' ? record.createdAt : Date.now(),
+    };
+  }
+
+  exportApiKeysForStore() {
+    const out = new Map();
+    for (const [token, record] of this.apiKeys.entries()) {
+      out.set(token, {
+        id: record.id,
+        scopes: Array.from(record.scopes),
+        rateLimit: record.rateLimit,
+        createdAt: record.createdAt,
+      });
+    }
+    return out;
+  }
+
+  async ensureApiKeysLoaded() {
+    const canUseCachedKeys = this.apiKeyStoreType === 'memory';
+    if (canUseCachedKeys && this.apiKeysLoaded) return;
+    if (this.apiKeysLoadPromise) {
+      await this.apiKeysLoadPromise;
+      return;
+    }
+
+    this.apiKeysLoadPromise = (async () => {
+      const loaded = await this.apiKeyStore.loadAll();
+      const merged = new Map();
+
+      const entries = loaded instanceof Map
+        ? loaded.entries()
+        : Object.entries(loaded || {});
+
+      let nextId = 1;
+      for (const [token, rawRecord] of entries) {
+        if (!token) continue;
+        const fallbackId = `key_${nextId++}`;
+        merged.set(token, this.normalizeApiKeyRecord(rawRecord, fallbackId));
+      }
+
+      let changed = false;
+      for (const [token, record] of this.bootstrapApiKeys.entries()) {
+        if (!merged.has(token)) {
+          merged.set(token, this.normalizeApiKeyRecord(record, record.id || `key_${nextId++}`));
+          changed = true;
+        }
+      }
+
+      this.apiKeys = merged;
+      this.apiKeysLoaded = true;
+      this.refreshAuthMode();
+
+      if (changed) {
+        await this.apiKeyStore.saveAll(this.exportApiKeysForStore());
+      }
+    })().finally(() => {
+      this.apiKeysLoadPromise = null;
+    });
+
+    await this.apiKeysLoadPromise;
+  }
+
+  maskToken(token) {
+    if (!token || typeof token !== 'string') return '****';
+    if (token.length <= 8) return `${token.slice(0, 2)}****${token.slice(-2)}`;
+    return `${token.slice(0, 4)}...${token.slice(-2)}`;
+  }
+
+  listApiKeys() {
+    const rows = [];
+    for (const [token, cfg] of this.apiKeys.entries()) {
+      rows.push({
+        id: cfg.id,
+        token_preview: this.maskToken(token),
+        scopes: Array.from(cfg.scopes),
+        rate_limit: cfg.rateLimit,
+        created_at: cfg.createdAt ? new Date(cfg.createdAt).toISOString() : null,
+      });
+    }
+    return rows;
+  }
+
+  findTokenById(id) {
+    for (const [token, cfg] of this.apiKeys.entries()) {
+      if (cfg.id === id) return token;
+    }
+    return null;
+  }
+
+  async upsertApiKey({ token, id, scopes, rate_limit }) {
+    await this.ensureApiKeysLoaded();
+
+    if (!token || typeof token !== 'string') {
+      throw Object.assign(new Error('token is required'), { status: 400, code: 'MISSING_PARAM' });
+    }
+
+    if (id) {
+      const existingTokenForId = this.findTokenById(id);
+      if (existingTokenForId && existingTokenForId !== token) {
+        throw Object.assign(new Error(`id "${id}" is already in use`), { status: 409, code: 'KEY_ID_CONFLICT' });
+      }
+    }
+
+    const existing = this.apiKeys.get(token);
+    const normalizedScopes = normalizeScopes(scopes);
+    const parsedRateLimit = rate_limit == null ? null : parsePositiveInt(rate_limit, 0);
+    if (rate_limit != null && !parsedRateLimit) {
+      throw Object.assign(new Error('rate_limit must be a positive integer'), { status: 400, code: 'INVALID_PARAM' });
+    }
+
+    const record = {
+      id: String(id || existing?.id || `key_${this.apiKeys.size + 1}`),
+      scopes: new Set(normalizedScopes.length ? normalizedScopes : ['*']),
+      rateLimit: parsedRateLimit || null,
+      createdAt: existing?.createdAt || Date.now(),
+    };
+
+    this.apiKeys.set(token, record);
+    this.refreshAuthMode();
+    await this.apiKeyStore.saveAll(this.exportApiKeysForStore());
+
+    return {
+      created: !existing,
+      key: {
+        id: record.id,
+        token_preview: this.maskToken(token),
+        scopes: Array.from(record.scopes),
+        rate_limit: record.rateLimit,
+      },
+    };
+  }
+
+  async revokeApiKey({ token, id }) {
+    await this.ensureApiKeysLoaded();
+
+    let targetToken = token;
+    if (!targetToken && id) {
+      targetToken = this.findTokenById(id);
+    }
+
+    if (!targetToken || !this.apiKeys.has(targetToken)) {
+      throw Object.assign(new Error('API key not found'), { status: 404, code: 'KEY_NOT_FOUND' });
+    }
+
+    const record = this.apiKeys.get(targetToken);
+    this.apiKeys.delete(targetToken);
+    this.refreshAuthMode();
+    await this.apiKeyStore.saveAll(this.exportApiKeysForStore());
+
+    return {
+      revoked: true,
+      key: {
+        id: record.id,
+        token_preview: this.maskToken(targetToken),
+      },
+    };
   }
 
   /**
@@ -52,6 +333,18 @@ class WebScopeServer {
     if (this.browser) {
       await this.browser.close();
       this.browser = null;
+    }
+  }
+
+  async shutdown() {
+    await this.closeBrowser();
+
+    if (this.rateLimitStore && typeof this.rateLimitStore.close === 'function') {
+      await this.rateLimitStore.close();
+    }
+
+    if (this.apiKeyStore && typeof this.apiKeyStore.close === 'function') {
+      await this.apiKeyStore.close();
     }
   }
 
@@ -89,12 +382,13 @@ class WebScopeServer {
   /**
    * Send JSON response
    */
-  sendJSON(res, data, status = 200) {
+  sendJSON(res, data, status = 200, extraHeaders = {}) {
     res.writeHead(status, {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': this.corsOrigin,
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Api-Key'
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Api-Key',
+      ...extraHeaders,
     });
     
     // Convert Map to Object for JSON serialization
@@ -112,8 +406,9 @@ class WebScopeServer {
   /**
    * Send error response
    */
-  sendError(res, message, status = 400, code = 'ERROR') {
-    this.sendJSON(res, { error: message, code }, status);
+  sendError(res, message, status = 400, code = 'ERROR', extraHeaders = {}) {
+    res.__webscopeCode = code;
+    this.sendJSON(res, { error: message, code }, status, extraHeaders);
   }
 
   /**
@@ -128,25 +423,187 @@ class WebScopeServer {
     res.end();
   }
 
+  getClientIp(req) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.trim()) {
+      return forwarded.split(',')[0].trim();
+    }
+    return req.socket?.remoteAddress || 'unknown';
+  }
+
+  requiredScopeFor(pathname, method) {
+    if (pathname === '/health') return null;
+    if (pathname === '/auth/keys') return 'admin';
+    return method === 'GET' ? 'read' : 'write';
+  }
+
+  authenticate(req, pathname, method) {
+    const requiredScope = this.requiredScopeFor(pathname, method);
+
+    if (!this.requireAuth || pathname === '/health') {
+      return {
+        ok: true,
+        requiredScope,
+        auth: {
+          keyId: 'anonymous',
+          scopes: new Set(['*']),
+          rateLimit: null,
+        },
+      };
+    }
+
+    const authHeader = req.headers['authorization'] || '';
+    const apiKeyHeader = req.headers['x-api-key'] || '';
+    const provided = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : apiKeyHeader;
+
+    const matched = this.apiKeys.get(provided);
+    if (!matched) {
+      return {
+        ok: false,
+        requiredScope,
+        status: 401,
+        code: 'UNAUTHORIZED',
+        message: 'Unauthorized',
+      };
+    }
+
+    if (requiredScope && !matched.scopes.has('*') && !matched.scopes.has(requiredScope)) {
+      return {
+        ok: false,
+        requiredScope,
+        status: 403,
+        code: 'FORBIDDEN_SCOPE',
+        message: `API key is missing required scope: ${requiredScope}`,
+      };
+    }
+
+    return {
+      ok: true,
+      requiredScope,
+      auth: {
+        keyId: matched.id,
+        scopes: matched.scopes,
+        rateLimit: matched.rateLimit,
+      },
+    };
+  }
+
+  async cleanupRateBuckets() {
+    if (typeof this.rateLimitStore.cleanup !== 'function') return;
+    const cutoff = Date.now() - this.rateLimitWindowMs * 2;
+    await this.rateLimitStore.cleanup(cutoff);
+  }
+
+  async checkRateLimit(identity, overrideLimit = null) {
+    const limit = overrideLimit || this.rateLimitMax;
+    const now = Date.now();
+    const { count, windowStart } = await this.rateLimitStore.increment(identity, now);
+    const allowed = count <= limit;
+    const remaining = Math.max(0, limit - count);
+    const resetMs = Math.max(0, windowStart + this.rateLimitWindowMs - now);
+
+    return { allowed, limit, remaining, resetMs };
+  }
+
+  emitAudit(entry) {
+    if (!this.auditLogEnabled) return;
+    console.log(JSON.stringify({ type: 'audit', ...entry }));
+  }
+
+  trackRequestMetrics(res) {
+    this.metrics.requestsTotal += 1;
+
+    if (res.statusCode >= 400 && res.statusCode < 500) {
+      this.metrics.errors4xx += 1;
+    }
+    if (res.statusCode >= 500) {
+      this.metrics.errors5xx += 1;
+    }
+    if (res.__webscopeCode === 'RATE_LIMITED') {
+      this.metrics.rateLimited += 1;
+    }
+  }
+
   /**
    * Main request handler
    */
   async handleRequest(req, res) {
     const { pathname, query } = url.parse(req.url, true);
     const method = req.method;
+    const startedAt = Date.now();
+
+    const audit = {
+      timestamp: new Date(startedAt).toISOString(),
+      method,
+      path: pathname,
+      client_ip: this.getClientIp(req),
+      user_agent: req.headers['user-agent'] || '',
+      auth_id: 'anonymous',
+      scope_required: this.requiredScopeFor(pathname, method),
+      status: null,
+      code: null,
+      duration_ms: null,
+    };
+
+    res.on('finish', () => {
+      audit.status = res.statusCode;
+      audit.code = res.__webscopeCode || null;
+      audit.duration_ms = Date.now() - startedAt;
+      this.trackRequestMetrics(res);
+      this.emitAudit(audit);
+    });
 
     // Handle CORS preflight
     if (method === 'OPTIONS') {
       return this.handleOptions(res);
     }
 
-    // API key auth — /health is exempt so monitoring works without a key
-    if (this.apiKey && pathname !== '/health') {
-      const authHeader = req.headers['authorization'] || '';
-      const apiKeyHeader = req.headers['x-api-key'] || '';
-      const provided = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : apiKeyHeader;
-      if (provided !== this.apiKey) {
-        return this.sendError(res, 'Unauthorized', 401, 'UNAUTHORIZED');
+    if (pathname !== '/health') {
+      try {
+        await this.ensureApiKeysLoaded();
+      } catch (err) {
+        return this.sendError(
+          res,
+          `Failed to load API key store: ${err.message}`,
+          500,
+          'KEY_STORE_ERROR'
+        );
+      }
+    }
+
+    const authResult = this.authenticate(req, pathname, method);
+    if (!authResult.ok) {
+      return this.sendError(res, authResult.message, authResult.status, authResult.code);
+    }
+
+    audit.auth_id = authResult.auth.keyId;
+
+    if (pathname !== '/health') {
+      const identity = `${audit.auth_id}:${audit.client_ip}`;
+      let rate;
+      try {
+        rate = await this.checkRateLimit(identity, authResult.auth.rateLimit);
+      } catch (err) {
+        return this.sendError(
+          res,
+          `Rate-limit store unavailable: ${err.message}`,
+          500,
+          'RATE_LIMIT_STORE_ERROR'
+        );
+      }
+      if (!rate.allowed) {
+        return this.sendError(
+          res,
+          'Rate limit exceeded',
+          429,
+          'RATE_LIMITED',
+          {
+            'Retry-After': String(Math.ceil(rate.resetMs / 1000)),
+            'X-RateLimit-Limit': String(rate.limit),
+            'X-RateLimit-Remaining': String(rate.remaining),
+            'X-RateLimit-Reset-Ms': String(rate.resetMs),
+          }
+        );
       }
     }
 
@@ -332,6 +789,18 @@ class WebScopeServer {
           }
           break;
 
+        case '/auth/keys':
+          if (method === 'GET') {
+            return this.handleAuthKeysList(req, res);
+          }
+          if (method === 'POST') {
+            return await this.handleAuthKeysUpsert(req, res);
+          }
+          if (method === 'DELETE') {
+            return await this.handleAuthKeysDelete(req, res);
+          }
+          break;
+
         default:
           return this.sendError(res, 'Not found', 404, 'NOT_FOUND');
       }
@@ -353,6 +822,47 @@ class WebScopeServer {
       timestamp: new Date().toISOString(),
       browser: this.browser ? 'initialized' : 'not initialized',
       lastActivity: new Date(this.lastActivity).toISOString()
+    });
+  }
+
+  /**
+    * List API keys (token values are masked).
+   */
+  handleAuthKeysList(req, res) {
+    this.sendJSON(res, {
+      success: true,
+      count: this.apiKeys.size,
+      keys: this.listApiKeys(),
+    });
+  }
+
+  /**
+    * Create or update an API key.
+   */
+  async handleAuthKeysUpsert(req, res) {
+    const body = await this.parseBody(req);
+    const out = await this.upsertApiKey(body || {});
+    this.sendJSON(res, {
+      success: true,
+      action: out.created ? 'keyCreated' : 'keyUpdated',
+      key: out.key,
+    });
+  }
+
+  /**
+    * Revoke an API key by token or id.
+   */
+  async handleAuthKeysDelete(req, res) {
+    const body = await this.parseBody(req);
+    if ((!body || (!body.token && !body.id))) {
+      return this.sendError(res, 'token or id is required', 400, 'MISSING_PARAM');
+    }
+
+    const out = await this.revokeApiKey(body);
+    this.sendJSON(res, {
+      success: true,
+      action: 'keyRevoked',
+      key: out.key,
     });
   }
 
@@ -920,6 +1430,21 @@ class WebScopeServer {
     const networkCount = this.browser ? this.browser.networkLog.length : 0;
     const hasPage = this.browser?.page ? 1 : 0;
     const body = [
+      '# HELP webscope_http_requests_total Total HTTP requests handled',
+      '# TYPE webscope_http_requests_total counter',
+      `webscope_http_requests_total ${this.metrics.requestsTotal}`,
+      '# HELP webscope_http_errors_4xx_total Total HTTP 4xx responses',
+      '# TYPE webscope_http_errors_4xx_total counter',
+      `webscope_http_errors_4xx_total ${this.metrics.errors4xx}`,
+      '# HELP webscope_http_errors_5xx_total Total HTTP 5xx responses',
+      '# TYPE webscope_http_errors_5xx_total counter',
+      `webscope_http_errors_5xx_total ${this.metrics.errors5xx}`,
+      '# HELP webscope_http_rate_limited_total Total HTTP requests rejected by rate limiting',
+      '# TYPE webscope_http_rate_limited_total counter',
+      `webscope_http_rate_limited_total ${this.metrics.rateLimited}`,
+      '# HELP webscope_auth_keys_total Number of active API keys',
+      '# TYPE webscope_auth_keys_total gauge',
+      `webscope_auth_keys_total ${this.apiKeys.size}`,
       '# HELP webscope_browser_active Whether a browser instance is active',
       '# TYPE webscope_browser_active gauge',
       `webscope_browser_active ${hasPage}`,
@@ -978,8 +1503,8 @@ class WebScopeServer {
  */
 function createServer(options = {}) {
   const server = new WebScopeServer(options);
-  
-  return http.createServer((req, res) => {
+
+  const httpServer = http.createServer((req, res) => {
     server.handleRequest(req, res).catch(error => {
       console.error('Server error:', error);
       if (!res.headersSent) {
@@ -987,6 +1512,14 @@ function createServer(options = {}) {
       }
     });
   });
+
+  httpServer.on('close', () => {
+    server.shutdown().catch((err) => {
+      console.error(`Shutdown error: ${err.message}`);
+    });
+  });
+
+  return httpServer;
 }
 
 module.exports = { createServer, WebScopeServer };

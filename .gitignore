@@ -72,6 +72,9 @@ pids
 playwright-report/
 playwright/.cache/.env
 test-*.js
+!test/test-*.js
+!test/helpers.js
 test-results/
+test/.tmp/
 yarn-debug.log*
 yarn-error.log*

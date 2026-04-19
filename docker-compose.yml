@@ -1,0 +1,52 @@
+services:
+  webscope:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: webscope:local
+    container_name: webscope
+    ports:
+      - "${WEBSCOPE_PORT:-3000}:3000"
+    environment:
+      WEBSCOPE_PORT: 3000
+      WEBSCOPE_COLS: ${WEBSCOPE_COLS:-100}
+      WEBSCOPE_TIMEOUT: ${WEBSCOPE_TIMEOUT:-30000}
+      WEBSCOPE_NETWORK_LOG_LIMIT: ${WEBSCOPE_NETWORK_LOG_LIMIT:-2000}
+      WEBSCOPE_MAX_SESSIONS: ${WEBSCOPE_MAX_SESSIONS:-20}
+      WEBSCOPE_SESSION_TTL_MS: ${WEBSCOPE_SESSION_TTL_MS:-1800000}
+      WEBSCOPE_RATE_LIMIT_WINDOW_MS: ${WEBSCOPE_RATE_LIMIT_WINDOW_MS:-60000}
+      WEBSCOPE_RATE_LIMIT_MAX: ${WEBSCOPE_RATE_LIMIT_MAX:-120}
+      WEBSCOPE_RATE_LIMIT_STORE: ${WEBSCOPE_RATE_LIMIT_STORE:-memory}
+      WEBSCOPE_REDIS_URL: ${WEBSCOPE_REDIS_URL:-}
+      WEBSCOPE_API_KEY_STORE: ${WEBSCOPE_API_KEY_STORE:-file}
+      WEBSCOPE_API_KEYS_FILE: ${WEBSCOPE_API_KEYS_FILE:-/app/state/api-keys.json}
+      WEBSCOPE_AUDIT_LOG: ${WEBSCOPE_AUDIT_LOG:-true}
+      WEBSCOPE_API_KEYS_JSON: ${WEBSCOPE_API_KEYS_JSON:-}
+      WEBSCOPE_API_KEY: ${WEBSCOPE_API_KEY:-}
+      WEBSCOPE_CORS_ORIGIN: ${WEBSCOPE_CORS_ORIGIN:-*}
+      WEBSCOPE_PROXY: ${WEBSCOPE_PROXY:-}
+    volumes:
+      - webscope-state:/app/state
+      - webscope-uploads:/tmp/webscope-uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"const http=require('http');const req=http.get('http://127.0.0.1:3000/health',(res)=>process.exit(res.statusCode===200?0:1));req.on('error',()=>process.exit(1));\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: webscope-redis
+    profiles: ["redis"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - webscope-redis:/data
+    restart: unless-stopped
+
+volumes:
+  webscope-state:
+  webscope-uploads:
+  webscope-redis:
