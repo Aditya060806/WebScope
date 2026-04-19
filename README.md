@@ -17,11 +17,15 @@ Full JavaScript execution. Spatial layout preserved. Every interactive element a
 
 ---
 
-## What's New in v1.0.0
+## What's New in v1.0.1
 
 | Feature | Description |
 |---------|-------------|
 | **Custom Headers & Auth** | Pass `Authorization`, cookies, or any custom headers with every request |
+| **Scoped API Security** | Enforce `read`, `write`, and `admin` scopes with bearer key auth on HTTP endpoints |
+| **Admin Key Management API** | Create, list, and revoke keys via `/auth/keys` with masked token previews |
+| **Persistent API Key Store** | Store keys in `memory`, `file`, or `redis` backends for single-node or shared deployments |
+| **Distributed Rate Limiting** | Use Redis-backed rate limits across instances with `X-RateLimit-*` response headers |
 | **Device Emulation** | Render as iPhone, Pixel, iPad — 9 built-in profiles via `--device` flag |
 | **JavaScript Evaluation** | Run arbitrary JS in the page with `webscope_evaluate` |
 | **Batch Operations** | Chain multiple actions in a single call with `webscope_batch` |
@@ -31,8 +35,17 @@ Full JavaScript execution. Spatial layout preserved. Every interactive element a
 | **Session Recording** | Record, export, and replay action sequences |
 | **Network Inspector** | Capture all HTTP requests/responses for debugging |
 | **Async Python Tools** | Production-ready async LangChain and CrewAI integrations with `httpx` |
+| **Production Docker Runtime** | Multi-stage Docker build, healthcheck, non-root runtime user, and Redis compose profile |
 | **OpenAPI Spec** | Full OpenAPI 3.1 spec at `/openapi.json` |
 | **Prometheus Metrics** | `/metrics` endpoint for monitoring |
+
+### What WebScope Can Do Now
+
+- Render modern JS-heavy pages into compact, structured text grids suitable for LLM reasoning.
+- Execute full interaction loops (`navigate`, `click`, `type`, `scroll`, `waitFor`, `evaluate`, `batch`, `replay`).
+- Run secure multi-key API access with scopes, admin key lifecycle endpoints, and per-key limits.
+- Persist auth and traffic controls with file or Redis stores for restart-safe and multi-instance operation.
+- Deploy in containers with Compose and optional Redis-backed distributed operation out of the box.
 
 ---
 
