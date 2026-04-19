@@ -50,6 +50,8 @@ Full JavaScript execution. Spatial layout preserved. Every interactive element a
 ### Release Notes
 
 - Latest release: [webscope@1.0.1](https://www.npmjs.com/package/webscope)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- Release tag notes template: [.github/RELEASE_TEMPLATE.md](.github/RELEASE_TEMPLATE.md)
 - Upgrade in one command:
 
 ```bash

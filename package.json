@@ -28,6 +28,7 @@
     "public/",
     "openapi.yaml",
     "logo.svg",
+    "CHANGELOG.md",
     "README.md",
     "LICENSE"
   ],
