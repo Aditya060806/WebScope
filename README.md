@@ -47,6 +47,15 @@ Full JavaScript execution. Spatial layout preserved. Every interactive element a
 - Persist auth and traffic controls with file or Redis stores for restart-safe and multi-instance operation.
 - Deploy in containers with Compose and optional Redis-backed distributed operation out of the box.
 
+### Release Notes
+
+- Latest release: [webscope@1.0.1](https://www.npmjs.com/package/webscope)
+- Upgrade in one command:
+
+```bash
+npm install -g webscope@latest
+```
+
 ---
 
 ## The Problem
