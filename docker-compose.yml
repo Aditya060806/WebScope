@@ -1,3 +1,5 @@
+name: webscope
+
 services:
   webscope:
     build:

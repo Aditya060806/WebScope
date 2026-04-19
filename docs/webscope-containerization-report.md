@@ -228,3 +228,40 @@ Table 16.1: Project Directory Structure
 | openapi.yaml | OpenAPI contract for HTTP API endpoints and response models |
 | package.json | Project manifest with runtime dependencies, test scripts, and Docker scripts |
 | README.md | Primary usage and operations documentation |
+
+## 17. npm Publish Plan
+
+To distribute WebScope through npm, the release flow should be executed after passing local validation.
+
+### 17.1 Pre-publish Checks
+- Confirm package version is newer than the registry version.
+- Confirm package contents using dry-run packaging.
+- Confirm npm authentication in the release environment.
+
+Reference checks used:
+- `npm view webscope version`
+- `npm pack --dry-run`
+- `npm publish --dry-run --access public`
+- `npm whoami`
+
+### 17.2 Current Release Readiness
+- Registry version detected: `1.0.0`
+- Local package version prepared: `1.0.1`
+- Dry-run package: successful (`webscope-1.0.1.tgz`)
+- Dry-run publish: successful for `webscope@1.0.1`
+- Remaining blocker: npm authentication is not active (`npm whoami` returns 401 Unauthorized)
+
+### 17.3 Final Publish Commands
+After authenticating with npm, run:
+
+```bash
+npm login
+npm whoami
+npm publish --access public
+```
+
+Optional verification after publish:
+
+```bash
+npm view webscope version
+```
