@@ -1,0 +1,602 @@
+#!/usr/bin/env node
+
+/**
+ * WebScope CLI - Command-line interface for text-grid web rendering
+ */
+
+const { AgentBrowser } = require('./browser');
+const { createServer } = require('./server');
+const { ensureBrowser } = require('./ensure-browser');
+const readline = require('readline');
+
+// Parse command line arguments
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const options = {
+    url: null,
+    interactive: false,
+    json: false,
+    serve: false,
+    cols: null,
+    port: null,
+    timeout: null,
+    device: null,
+    proxy: null,
+    record: false,
+    help: false
+  };
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    
+    switch (arg) {
+      case '--interactive':
+      case '-i':
+        options.interactive = true;
+        break;
+        
+      case '--json':
+      case '-j':
+        options.json = true;
+        break;
+        
+      case '--serve':
+      case '-s':
+        options.serve = true;
+        break;
+        
+      case '--cols':
+      case '-c':
+        options.cols = parseInt(args[++i]) || 100;
+        break;
+        
+      case '--rows':
+      case '-r':
+        console.error('Warning: --rows is deprecated. Height is dynamic (grows to fit content).');
+        args[++i];
+        break;
+        
+      case '--port':
+      case '-p':
+        options.port = parseInt(args[++i]) || 3000;
+        break;
+
+      case '--timeout':
+      case '-t':
+        options.timeout = parseInt(args[++i]) || 30000;
+        break;
+
+      case '--device':
+      case '-d':
+        options.device = args[++i];
+        break;
+
+      case '--proxy':
+        options.proxy = args[++i];
+        break;
+
+      case '--record':
+        options.record = true;
+        break;
+        
+      case '--help':
+      case '-h':
+        options.help = true;
+        break;
+        
+      case 'install':
+        options.install = true;
+        break;
+
+      default:
+        if (!arg.startsWith('-') && !options.url) {
+          options.url = arg;
+        }
+        break;
+    }
+  }
+
+  // Environment variable fallbacks — CLI flags take priority
+  if (options.port === null) options.port = parseInt(process.env.WEBSCOPE_PORT) || 3000;
+  if (options.cols === null) options.cols = parseInt(process.env.WEBSCOPE_COLS) || 100;
+  if (options.timeout === null) options.timeout = parseInt(process.env.WEBSCOPE_TIMEOUT) || 30000;
+  if (!options.proxy) options.proxy = process.env.WEBSCOPE_PROXY || null;
+
+  return options;
+}
+
+// Show help message
+function showHelp() {
+  console.log(`
+WebScope - Text-grid web renderer for AI agents
+
+USAGE:
+  webscope <url>                    Render page and print to console
+  webscope --interactive <url>      Start interactive REPL mode
+  webscope --json <url>             Output as JSON (view + elements)
+  webscope --serve                  Start HTTP API server
+  webscope install                  Install Chromium browser
+
+OPTIONS:
+  --cols, -c <number>                Grid width in characters (default: 100)
+  --rows, -r <number>                (deprecated, height is dynamic)
+  --port, -p <number>                Server port (default: 3000)
+  --timeout, -t <ms>                 Request timeout in ms (default: 30000)
+  --device, -d <name>                Device profile (iphone14, pixel7, ipadpro, etc.)
+  --proxy <url>                      HTTP/SOCKS proxy URL
+  --record                           Record actions for replay (interactive mode)
+  --interactive, -i                  Interactive REPL mode
+  --json, -j                         JSON output format
+  --serve, -s                        Start HTTP server
+  --help, -h                         Show this help message
+
+ENVIRONMENT VARIABLES:
+  WEBSCOPE_PORT                       Server port (overridden by --port)
+  WEBSCOPE_COLS                       Grid width in characters (overridden by --cols)
+  WEBSCOPE_TIMEOUT                    Request timeout in ms (overridden by --timeout)
+  WEBSCOPE_API_KEY                    Require this key on all HTTP requests
+  WEBSCOPE_API_KEYS_JSON              Scoped API keys JSON map (id/scopes/rate_limit)
+  WEBSCOPE_API_KEY_STORE              API key backend (memory, file, redis)
+  WEBSCOPE_API_KEYS_FILE              API key file path when using file backend
+  WEBSCOPE_RATE_LIMIT_WINDOW_MS       Rate-limit window in milliseconds
+  WEBSCOPE_RATE_LIMIT_MAX             Max requests per window per identity
+  WEBSCOPE_RATE_LIMIT_STORE           Rate-limit backend (memory, redis)
+  WEBSCOPE_REDIS_URL                  Redis URL for future shared rate-limit backend
+  WEBSCOPE_AUDIT_LOG                  Emit JSON audit logs (true/false)
+  WEBSCOPE_NETWORK_LOG_LIMIT          Max retained network events per session
+  WEBSCOPE_MAX_SESSIONS               Max MCP sessions before LRU eviction
+  WEBSCOPE_SESSION_TTL_MS             MCP idle session TTL in milliseconds
+  WEBSCOPE_CORS_ORIGIN                Allowed CORS origin for the HTTP server (default: *)
+  WEBSCOPE_PROXY                      HTTP/SOCKS proxy URL (overridden by --proxy)
+
+EXAMPLES:
+  webscope https://example.com
+  webscope --interactive https://github.com
+  webscope --json --cols 120 https://news.ycombinator.com
+  webscope --serve --port 8080
+  webscope --device iphone14 https://example.com
+  webscope --proxy http://proxy:8080 https://example.com
+
+INTERACTIVE COMMANDS:
+  click <ref>                        Click element by reference number
+  type <ref> <text>                  Type text into input element
+  scroll <direction> [amount]        Scroll (up/down/left/right)
+  select <ref> <value>               Select dropdown option
+  snapshot                           Re-render current page
+  query <selector>                   Find elements by CSS selector
+  region <r1> <c1> <r2> <c2>        Read text from grid region
+  navigate <url>                     Navigate to new URL
+  screenshot [filename]              Take screenshot (for debugging)
+  find <query>                       Search elements by text
+  diff                               Show changes since last snapshot
+  record                             Toggle action recording
+  replay                             Replay recorded actions
+  network [filter]                   Show network log
+  help                               Show interactive commands
+  quit, exit                         Exit interactive mode
+`);
+}
+
+// Main render function
+async function render(url, options) {
+  const browser = new AgentBrowser({
+    cols: options.cols,
+    headless: true,
+    device: options.device,
+    proxy: options.proxy,
+  });
+
+  try {
+    console.error(`Rendering: ${url}`);
+    const result = await browser.navigate(url);
+    
+    if (options.json) {
+      console.log(JSON.stringify({
+        view: result.view,
+        elements: result.elements,
+        meta: result.meta
+      }, null, 2));
+    } else {
+      console.log(result.view);
+      
+      // Show element references
+      const elCount = Object.keys(result.elements || {}).length;
+      if (elCount > 0) {
+        console.error(`\\nInteractive elements:`);
+        for (const [ref, element] of Object.entries(result.elements || {})) {
+          console.error(`[${ref}] ${element.semantic || element.tag}: ${element.text || '(no text)'}`);
+        }
+      }
+    }
+    
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  } finally {
+    await browser.close();
+  }
+}
+
+// Interactive REPL mode
+async function interactive(url, options) {
+  const browser = new AgentBrowser({
+    cols: options.cols,
+    headless: true,
+    device: options.device,
+    proxy: options.proxy,
+  });
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    prompt: 'webscope> '
+  });
+
+  let result = null;
+
+  try {
+    console.log(`Starting interactive session...`);
+    if (url) {
+      console.log(`Navigating to: ${url}`);
+      result = await browser.navigate(url);
+      console.log(result.view);
+      console.log(`\\nElements: ${Object.keys(result.elements || {}).length} interactive elements found`);
+    }
+    
+    if (options.record) {
+      browser.startRecording();
+      console.log('Recording enabled — actions will be captured for replay');
+    }
+
+    console.log(`\\nType 'help' for commands, 'quit' to exit`);
+    rl.prompt();
+
+    rl.on('line', async (input) => {
+      const parts = input.trim().split(/\\s+/);
+      const command = parts[0].toLowerCase();
+      
+      try {
+        switch (command) {
+          case 'help':
+            console.log(`
+Interactive Commands:
+  click <ref>                 Click element [ref]
+  type <ref> <text>           Type text into element [ref]
+  scroll <dir> [amount]       Scroll direction (up/down/left/right)
+  select <ref> <value>        Select option in dropdown [ref]
+  snapshot                    Re-render current page
+  query <selector>            Find elements by CSS selector
+  region <r1> <c1> <r2> <c2>  Read text from grid region
+  navigate <url>              Navigate to new URL
+  screenshot [file]           Take screenshot
+  elements                    List all interactive elements
+  url                         Show current URL
+  clear                       Clear screen
+  quit, exit                  Exit
+`);
+            break;
+            
+          case 'click':
+            if (parts.length < 2) {
+              console.log('Usage: click <ref>');
+            } else {
+              const ref = parseInt(parts[1]);
+              result = await browser.click(ref);
+              console.log(result.view);
+            }
+            break;
+            
+          case 'type':
+            if (parts.length < 3) {
+              console.log('Usage: type <ref> <text>');
+            } else {
+              const ref = parseInt(parts[1]);
+              const text = parts.slice(2).join(' ');
+              result = await browser.type(ref, text);
+              console.log(result.view);
+            }
+            break;
+            
+          case 'upload':
+            if (parts.length < 3) {
+              console.log('Usage: upload <ref> <filepath> [filepath2 ...]');
+            } else {
+              const ref = parseInt(parts[1]);
+              const files = parts.slice(2);
+              result = await browser.upload(ref, files);
+              console.log(result.view);
+            }
+            break;
+
+          case 'scroll':
+            if (parts.length < 2) {
+              console.log('Usage: scroll <direction> [amount]');
+            } else {
+              const direction = parts[1];
+              const amount = parseInt(parts[2]) || 5;
+              result = await browser.scroll(direction, amount);
+              console.log(result.view);
+            }
+            break;
+            
+          case 'select':
+            if (parts.length < 3) {
+              console.log('Usage: select <ref> <value>');
+            } else {
+              const ref = parseInt(parts[1]);
+              const value = parts.slice(2).join(' ');
+              result = await browser.select(ref, value);
+              console.log(result.view);
+            }
+            break;
+            
+          case 'snapshot':
+            result = await browser.snapshot();
+            console.log(result.view);
+            break;
+            
+          case 'query':
+            if (parts.length < 2) {
+              console.log('Usage: query <selector>');
+            } else {
+              const selector = parts[1];
+              const matches = await browser.query(selector);
+              console.log(`Found ${matches.length} matches:`);
+              matches.forEach(match => {
+                console.log(`[${match.ref}] ${match.tagName}: ${match.textContent || '(no text)'}`);
+              });
+            }
+            break;
+            
+          case 'region':
+            if (parts.length < 5) {
+              console.log('Usage: region <r1> <c1> <r2> <c2>');
+            } else {
+              const r1 = parseInt(parts[1]);
+              const c1 = parseInt(parts[2]);
+              const r2 = parseInt(parts[3]);
+              const c2 = parseInt(parts[4]);
+              const text = browser.readRegion(r1, c1, r2, c2);
+              console.log(`Region (${r1},${c1}) to (${r2},${c2}):`);
+              console.log(text);
+            }
+            break;
+            
+          case 'navigate':
+            if (parts.length < 2) {
+              console.log('Usage: navigate <url>');
+            } else {
+              const newUrl = parts[1];
+              console.log(`Navigating to: ${newUrl}`);
+              result = await browser.navigate(newUrl);
+              console.log(result.view);
+            }
+            break;
+            
+          case 'screenshot':
+            const filename = parts[1] || 'screenshot.png';
+            await browser.screenshot({ path: filename });
+            console.log(`Screenshot saved to: ${filename}`);
+            break;
+            
+          case 'elements':
+            if (result && Object.keys(result.elements || {}).length > 0) {
+              console.log(`Interactive elements (${Object.keys(result.elements || {}).length}):`);
+              for (const [ref, element] of Object.entries(result.elements || {})) {
+                console.log(`[${ref}] ${element.semantic || element.tag}: ${element.text || '(no text)'}`);
+              }
+            } else {
+              console.log('No interactive elements found');
+            }
+            break;
+            
+          case 'url':
+            console.log(`Current URL: ${browser.getCurrentUrl() || 'Not navigated'}`);
+            break;
+            
+          case 'clear':
+            console.clear();
+            break;
+
+          case 'find':
+            if (parts.length < 2) {
+              console.log('Usage: find <query>');
+            } else {
+              const q = parts.slice(1).join(' ');
+              const matches = browser.find(q);
+              if (matches.length === 0) {
+                console.log(`No elements matching "${q}"`);
+              } else {
+                matches.forEach(m => {
+                  console.log(`[${m.ref}] (score:${m.score}) ${m.element.semantic}: ${m.element.text || '(no text)'}`);
+                });
+              }
+            }
+            break;
+
+          case 'diff':
+            try {
+              const d = browser.diff();
+              console.log(`+${d.summary.addedCount} added, -${d.summary.removedCount} removed, ~${d.summary.changedCount} changed`);
+              for (const [ref, el] of Object.entries(d.added)) console.log(`  + [${ref}] ${el.semantic}: ${el.text || ''}`);
+              for (const [ref, el] of Object.entries(d.removed)) console.log(`  - [${ref}] ${el.semantic}: ${el.text || ''}`);
+              for (const [ref, ch] of Object.entries(d.changed)) console.log(`  ~ [${ref}] ${ch.before.text || ''} → ${ch.after.text || ''}`);
+            } catch (e) {
+              console.log(e.message);
+            }
+            break;
+
+          case 'record':
+            if (browser._recording) {
+              const out = browser.stopRecording();
+              console.log(`Recording stopped. ${out.actionCount} actions captured.`);
+            } else {
+              browser.startRecording();
+              console.log('Recording started.');
+            }
+            break;
+
+          case 'replay':
+            try {
+              const out = await browser.replay();
+              console.log(`Replayed ${out.replayed}/${out.total} actions.`);
+            } catch (e) {
+              console.log(e.message);
+            }
+            break;
+
+          case 'network':
+            const netLog = browser.getNetworkLog({ type: parts[1] });
+            console.log(`${netLog.length} entries:`);
+            netLog.slice(-20).forEach(e => {
+              if (e.type === 'request') {
+                console.log(`  → ${e.method} ${e.url}`);
+              } else {
+                console.log(`  ← ${e.status} ${e.url}`);
+              }
+            });
+            break;
+
+          case 'evaluate':
+          case 'eval':
+            if (parts.length < 2) {
+              console.log('Usage: evaluate <expression>');
+            } else {
+              const expr = parts.slice(1).join(' ');
+              const evalResult = await browser.evaluate(expr);
+              console.log(JSON.stringify(evalResult, null, 2));
+            }
+            break;
+            
+          case 'quit':
+          case 'exit':
+            console.log('Goodbye!');
+            rl.close();
+            return;
+            
+          case '':
+            // Empty command, just re-prompt
+            break;
+            
+          default:
+            console.log(`Unknown command: ${command}. Type 'help' for available commands.`);
+            break;
+        }
+      } catch (error) {
+        console.error(`Error: ${error.message}`);
+      }
+      
+      rl.prompt();
+    });
+
+    rl.on('close', async () => {
+      console.log('\\nClosing browser...');
+      await browser.close();
+      process.exit(0);
+    });
+
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    await browser.close();
+    process.exit(1);
+  }
+}
+
+// Start HTTP server
+async function serve(options) {
+  console.log(`Starting WebScope HTTP server on port ${options.port}...`);
+  
+  const server = createServer({
+    cols: options.cols,
+    timeout: options.timeout,
+  });
+  
+  server.listen(options.port, () => {
+    console.log(`WebScope server running at http://localhost:${options.port}`);
+    console.log(`\\nAPI Endpoints:`);
+    console.log(`  POST /navigate     - Navigate to URL`);
+    console.log(`  POST /click        - Click element`);
+    console.log(`  POST /type         - Type text`);
+    console.log(`  POST /scroll       - Scroll page`);
+    console.log(`  POST /select       - Select dropdown option`);
+    console.log(`  POST /press        - Press keyboard key`);
+    console.log(`  POST /upload       - Upload file`);
+    console.log(`  POST /waitFor      - Wait for selector/text/URL`);
+    console.log(`  POST /assertField  - Validate field value`);
+    console.log(`  POST /evaluate     - Execute JavaScript`);
+    console.log(`  POST /batch        - Batch operations`);
+    console.log(`  POST /find         - Semantic element search`);
+    console.log(`  POST /headers      - Set session headers`);
+    console.log(`  POST /saveState    - Save browser storage state`);
+    console.log(`  POST /loadState    - Load browser storage state`);
+    console.log(`  POST /record/start - Start recording`);
+    console.log(`  POST /record/stop  - Stop recording`);
+    console.log(`  GET  /record/export - Export recording`);
+    console.log(`  POST /replay       - Replay actions`);
+    console.log(`  GET  /snapshot     - Get current state`);
+    console.log(`  GET  /diff         - Element diff`);
+    console.log(`  GET  /devices      - List device profiles`);
+    console.log(`  GET  /network      - Network log`);
+    console.log(`  GET  /openapi.json - OpenAPI specification`);
+    console.log(`  GET  /auth/keys    - List API keys (admin scope)`);
+    console.log(`  POST /auth/keys    - Create/update API key (admin scope)`);
+    console.log(`  DELETE /auth/keys  - Revoke API key (admin scope)`);
+    console.log(`  GET  /metrics      - Prometheus metrics`);
+    console.log(`  GET  /health       - Health check`);
+  });
+}
+
+// Main entry point
+async function main() {
+  const options = parseArgs();
+  
+  if (options.help || (process.argv.length === 2)) {
+    showHelp();
+    return;
+  }
+
+  if (options.install) {
+    const { spawnSync } = require('child_process');
+    let cliPath;
+    try { cliPath = require.resolve('playwright/cli.js'); } catch { /* fallback */ }
+    const result = cliPath
+      ? spawnSync(process.execPath, [cliPath, 'install', 'chromium'], { stdio: 'inherit' })
+      : spawnSync('npx', ['playwright', 'install', 'chromium'], { stdio: 'inherit', shell: true });
+    process.exit(result.status || 0);
+  }
+
+  await ensureBrowser();
+
+  if (options.serve) {
+    await serve(options);
+  } else if (options.interactive) {
+    await interactive(options.url, options);
+  } else if (options.url) {
+    await render(options.url, options);
+  } else {
+    console.error('Error: No URL provided or server mode selected');
+    console.error('Use --help for usage information');
+    process.exit(1);
+  }
+}
+
+// Handle graceful shutdown
+process.on('SIGINT', () => {
+  console.log('\\nShutting down...');
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('\\nShutting down...');
+  process.exit(0);
+});
+
+// Run CLI
+if (require.main === module) {
+  main().catch(error => {
+    console.error(`Fatal error: ${error.message}`);
+    process.exit(1);
+  });
+}
+
+module.exports = { parseArgs, render, interactive, serve };

@@ -1,0 +1,59 @@
+{
+  "name": "webscope",
+  "version": "1.0.1",
+  "description": "A text-grid web renderer for AI agents — see the web without screenshots",
+  "main": "src/browser.js",
+  "bin": {
+    "webscope": "src/cli.js",
+    "webscope-mcp": "mcp/index.js"
+  },
+  "scripts": {
+    "postinstall": "node -e \"try{require('child_process').execFileSync(process.execPath,[require.resolve('playwright/cli.js'),'install','chromium'],{stdio:'inherit'})}catch(e){}\"",
+    "start": "node src/cli.js",
+    "serve": "node src/server.js",
+    "docker:build": "docker build -t webscope:local .",
+    "docker:run": "docker run --rm -p 3000:3000 webscope:local",
+    "docker:up": "docker compose -p webscope up --build",
+    "docker:up:redis": "docker compose -p webscope -f docker-compose.yml -f docker-compose.redis.yml --profile redis up --build -d",
+    "docker:down": "docker compose -p webscope down",
+    "test": "node test/test-form.js && node test/test-live.js && node test/test-ats-e2e.js",
+    "test:form": "node test/test-form.js",
+    "test:live": "node test/test-live.js",
+    "test:ats": "node test/test-ats-e2e.js"
+  },
+  "files": [
+    "src/",
+    "mcp/",
+    "tools/",
+    "public/",
+    "openapi.yaml",
+    "logo.svg",
+    "CHANGELOG.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "ai",
+    "agent",
+    "browser",
+    "text",
+    "renderer",
+    "llm",
+    "headless",
+    "accessibility"
+  ],
+  "author": "Aditya Pandey <aditya060806@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aditya060806/WebScope.git"
+  },
+  "homepage": "https://github.com/Aditya060806/WebScope#readme",
+  "bugs": {
+    "url": "https://github.com/Aditya060806/WebScope/issues"
+  },
+  "dependencies": {
+    "playwright": "^1.50.0",
+    "redis": "^4.7.0"
+  }
+}

@@ -1,0 +1,8 @@
+services:
+  webscope:
+    depends_on:
+      - redis
+    environment:
+      WEBSCOPE_RATE_LIMIT_STORE: redis
+      WEBSCOPE_API_KEY_STORE: redis
+      WEBSCOPE_REDIS_URL: redis://redis:6379

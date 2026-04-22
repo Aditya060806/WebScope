@@ -1,0 +1,80 @@
+
+# Bower dependency directory (https://bower.io/)
+# Compiled binary addons (https://nodejs.org/api/addons.html)
+# Coverage directory used by tools like istanbul
+# Dependencies
+# Dependency directories
+# Site build output
+site/dist/
+# DynamoDB Local files
+# FuseBox cache
+# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
+# Logs
+# Optional REPL history
+# Optional npm cache directory
+# Output of 'npm pack'
+# Playwright specific
+# Runtime data
+# Screenshots and test files
+# Serverless directories
+# VS Code
+# Yarn Integrity file
+# dotenv environment variables file
+# macOS
+# next.js build output
+# node-waf configuration
+# nuxt.js build output
+# nyc test coverage
+# parcel-bundler cache (https://parceljs.org/)
+# vuepress build output
+*.jpeg
+*.jpg
+*.lcov
+*.log
+*.pid
+*.pid.lock
+*.png
+# Allow logo images in public/
+!public/*.png
+# Allow site assets
+!site/public/
+!site/public/assets/
+!site/public/**/*.png
+*.seed
+*.tgz
+.DS_Store
+.cache
+.dynamodb/
+.env
+.env.production
+.env.test
+.fusebox/
+.grunt
+.lock-wscript
+.next
+.node_repl_history
+.npm
+.nuxt
+.nyc_output
+.parcel-cache
+.serverless
+.vscode/
+.vuepress/dist
+.yarn-integrity
+bower_components
+build/Release
+coverage/
+jspm_packages/
+logs
+node_modules/
+npm-debug.log*
+pids
+playwright-report/
+playwright/.cache/.env
+test-*.js
+!test/test-*.js
+!test/helpers.js
+test-results/
+test/.tmp/
+yarn-debug.log*
+yarn-error.log*

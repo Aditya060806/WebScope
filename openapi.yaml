@@ -1,0 +1,1010 @@
+openapi: "3.1.0"
+info:
+  title: WebScope API
+  description: Text-grid web browser for AI agents — REST API
+  version: "1.0.0"
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  contact:
+    name: Aditya Pandey
+    email: aditya060806@gmail.com
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      security: []
+      responses:
+        "200":
+          description: Server status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  timestamp: { type: string }
+                  browser: { type: string }
+
+  /navigate:
+    post:
+      summary: Navigate to a URL
+      operationId: navigate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string, description: URL to navigate to }
+                headers: { type: object, description: Custom HTTP headers }
+                device: { type: string, description: "Device profile (e.g., iphone14, pixel7)" }
+                proxy: { type: string, description: HTTP/SOCKS proxy URL }
+      responses:
+        "200":
+          $ref: "#/components/responses/SnapshotResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /click:
+    post:
+      summary: Click an element by ref
+      operationId: click
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ref]
+              properties:
+                ref: { type: integer, description: Element reference number }
+      responses:
+        "200":
+          $ref: "#/components/responses/SnapshotResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /type:
+    post:
+      summary: Type text into an input
+      operationId: typeText
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ref, text]
+              properties:
+                ref: { type: integer }
+                text: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/SnapshotResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /select:
+    post:
+      summary: Select a dropdown option
+      operationId: selectOption
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ref, value]
+              properties:
+                ref: { type: integer }
+                value: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/SnapshotResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /scroll:
+    post:
+      summary: Scroll the page
+      operationId: scroll
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                direction: { type: string, enum: [up, down, top] }
+                amount: { type: integer, default: 1 }
+      responses:
+        "200":
+          $ref: "#/components/responses/SnapshotResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /press:
+    post:
+      summary: Press a keyboard key
+      operationId: pressKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key]
+              properties:
+                key: { type: string, description: "Key name (Enter, Tab, Escape, etc.)" }
+      responses:
+        "200":
+          $ref: "#/components/responses/SnapshotResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /upload:
+    post:
+      summary: Upload a file to a file input
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ref, files]
+              properties:
+                ref: { type: integer }
+                files: { oneOf: [{ type: string }, { type: array, items: { type: string } }] }
+      responses:
+        "200":
+          $ref: "#/components/responses/SnapshotResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /snapshot:
+    get:
+      summary: Get current page snapshot
+      operationId: getSnapshot
+      responses:
+        "200":
+          $ref: "#/components/responses/SnapshotResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /evaluate:
+    post:
+      summary: Execute JavaScript in the page
+      operationId: evaluate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [script]
+              properties:
+                script: { type: string, description: JavaScript expression }
+      responses:
+        "200":
+          description: Evaluation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  result: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /batch:
+    post:
+      summary: Execute multiple actions in sequence
+      operationId: batch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [actions]
+              properties:
+                actions:
+                  type: array
+                  items:
+                    type: object
+                    required: [action]
+                    properties:
+                      action: { type: string, enum: [navigate, click, type, select, scroll, press, upload, snapshot, waitFor, evaluate] }
+                      params: { type: object }
+      responses:
+        "200":
+          description: Batch results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  completed: { type: integer }
+                  total: { type: integer }
+                  steps: { type: array }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /diff:
+    get:
+      summary: Diff current vs previous snapshot
+      operationId: getDiff
+      responses:
+        "200":
+          description: Element diff
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  added: { type: object }
+                  removed: { type: object }
+                  changed: { type: object }
+                  summary: { type: object }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /find:
+    post:
+      summary: Semantic element search
+      operationId: findElements
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string, description: Natural language search query }
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  matches: { type: array }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /headers:
+    post:
+      summary: Set session-level HTTP headers
+      operationId: setHeaders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [headers]
+              properties:
+                headers: { type: object }
+      responses:
+        "200":
+          description: Headers set
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /devices:
+    get:
+      summary: List available device profiles
+      operationId: getDevices
+      responses:
+        "200":
+          description: Device list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  devices: { type: array }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /network:
+    get:
+      summary: Get network request/response log
+      operationId: getNetwork
+      parameters:
+        - name: type
+          in: query
+          schema: { type: string, enum: [request, response] }
+        - name: resourceType
+          in: query
+          schema: { type: string }
+        - name: urlPattern
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Network log
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  count: { type: integer }
+                  entries: { type: array }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    delete:
+      summary: Clear network log
+      operationId: clearNetwork
+      responses:
+        "200":
+          description: Log cleared
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /record/start:
+    post:
+      summary: Start recording actions
+      operationId: recordStart
+      responses:
+        "200":
+          description: Recording started
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /record/stop:
+    post:
+      summary: Stop recording actions
+      operationId: recordStop
+      responses:
+        "200":
+          description: Recording stopped
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /record/export:
+    get:
+      summary: Export recorded actions
+      operationId: recordExport
+      responses:
+        "200":
+          description: Recorded actions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  actions: { type: array }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /replay:
+    post:
+      summary: Replay recorded actions
+      operationId: replay
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actions: { type: array, description: "Actions to replay (omit to replay last recording)" }
+      responses:
+        "200":
+          description: Replay results
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /query:
+    post:
+      summary: Query elements by CSS selector
+      operationId: queryElements
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [selector]
+              properties:
+                selector: { type: string }
+      responses:
+        "200":
+          description: Query results
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /region:
+    post:
+      summary: Read text from grid region
+      operationId: readRegion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [r1, c1, r2, c2]
+              properties:
+                r1: { type: integer }
+                c1: { type: integer }
+                r2: { type: integer }
+                c2: { type: integer }
+      responses:
+        "200":
+          description: Region text
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /waitFor:
+    post:
+      summary: Wait for a condition
+      operationId: waitFor
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                selector: { type: string }
+                text: { type: string }
+                urlIncludes: { type: string }
+                state: { type: string, enum: [attached, detached, visible, hidden] }
+                timeoutMs: { type: integer }
+      responses:
+        "200":
+          $ref: "#/components/responses/SnapshotResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /assertField:
+    post:
+      summary: Assert a field value
+      operationId: assertField
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ref, expected]
+              properties:
+                ref: { type: integer }
+                expected: { type: string }
+                comparator: { type: string, enum: [equals, includes, regex, not_empty] }
+                attribute: { type: string }
+      responses:
+        "200":
+          description: Assertion result
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /saveState:
+    post:
+      summary: Save browser storage state
+      operationId: saveState
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path: { type: string }
+      responses:
+        "200":
+          description: State saved
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /loadState:
+    post:
+      summary: Load browser storage state
+      operationId: loadState
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path: { type: string }
+      responses:
+        "200":
+          description: State loaded
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /screenshot:
+    post:
+      summary: Take a screenshot
+      operationId: takeScreenshot
+      responses:
+        "200":
+          description: PNG screenshot
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      operationId: getMetrics
+      responses:
+        "200":
+          description: Metrics in Prometheus text format
+          content:
+            text/plain:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /openapi.json:
+    get:
+      summary: Get OpenAPI specification (YAML content)
+      operationId: getOpenApi
+      responses:
+        "200":
+          description: OpenAPI YAML specification
+          content:
+            text/yaml:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /close:
+    post:
+      summary: Close browser
+      operationId: closeBrowser
+      responses:
+        "200":
+          description: Browser closed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /auth/keys:
+    get:
+      summary: List API keys (masked)
+      description: Requires admin-scoped key. Token values are never returned in full.
+      operationId: listApiKeys
+      responses:
+        "200":
+          description: API key list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  count: { type: integer }
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        token_preview: { type: string }
+                        scopes:
+                          type: array
+                          items: { type: string }
+                        rate_limit: { type: integer, nullable: true }
+                        created_at: { type: string, nullable: true }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    post:
+      summary: Create or update an API key
+      description: Requires admin-scoped key.
+      operationId: upsertApiKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+                id: { type: string }
+                scopes:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items: { type: string }
+                rate_limit: { type: integer, nullable: true }
+      responses:
+        "200":
+          description: Key created or updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  action: { type: string }
+                  key:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      token_preview: { type: string }
+                      scopes:
+                        type: array
+                        items: { type: string }
+                      rate_limit: { type: integer, nullable: true }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    delete:
+      summary: Revoke an API key
+      description: Requires admin-scoped key.
+      operationId: revokeApiKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token: { type: string }
+                id: { type: string }
+      responses:
+        "200":
+          description: Key revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  action: { type: string }
+                  key:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      token_preview: { type: string }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ForbiddenScope"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error: { type: string }
+        code:
+          type: string
+          enum:
+            - MISSING_PARAM
+            - INVALID_URL
+            - INVALID_URL_SCHEME
+            - INVALID_JSON
+            - BROWSER_NOT_READY
+            - FORBIDDEN_SCOPE
+            - BODY_TOO_LARGE
+            - RATE_LIMITED
+            - UNAUTHORIZED
+            - KEY_STORE_ERROR
+            - RATE_LIMIT_STORE_ERROR
+            - KEY_ID_CONFLICT
+            - KEY_NOT_FOUND
+            - NOT_FOUND
+            - METHOD_NOT_ALLOWED
+            - INTERNAL_ERROR
+
+  responses:
+    SnapshotResponse:
+      description: Page snapshot with text grid and element map
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success: { type: boolean }
+              view: { type: string, description: Text grid rendering of the page }
+              elements: { type: object, description: Map of ref numbers to element metadata }
+              meta:
+                type: object
+                properties:
+                  url: { type: string }
+                  title: { type: string }
+                  totalRefs: { type: integer }
+                  charH: { type: number }
+                  charW: { type: number }
+
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    ForbiddenScope:
+      description: API key does not have required scope for this endpoint
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    RateLimited:
+      description: Request budget exceeded for current window
+      headers:
+        Retry-After:
+          schema: { type: integer }
+          description: Seconds until the rate-limit window resets.
+        X-RateLimit-Limit:
+          schema: { type: integer }
+        X-RateLimit-Remaining:
+          schema: { type: integer }
+        X-RateLimit-Reset-Ms:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Conflict:
+      description: Conflict while processing request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    ServerError:
+      description: Internal backend/store error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+security:
+  - apiKey: []
+  - bearerAuth: []

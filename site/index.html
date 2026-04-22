@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebScope — Give your AI agent eyes</title>
+  <meta name="description" content="Render web pages as structured text grids for AI agents. 500× smaller than screenshots. No vision model needed.">
+  <meta property="og:title" content="WebScope — Give your AI agent eyes">
+  <meta property="og:description" content="Render web pages as structured text grids for AI agents. 500× smaller than screenshots. No vision model needed.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://webscope.dpdns.org">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" href="/assets/webscope-logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+
+  <!-- ========== NAVBAR ========== -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <span class="logo-text"><span class="logo-web">Web</span><span class="logo-scope">Scope</span><span class="logo-dot">.</span></span>
+      </a>
+      <div class="nav-links" id="navLinks">
+        <a href="#features" class="nav-link">Features</a>
+        <a href="#integrations" class="nav-link">Integrations</a>
+        <a href="#how-it-works" class="nav-link">How It Works</a>
+        <a href="https://www.npmjs.com/package/webscope" target="_blank" rel="noopener" class="nav-link">Docs</a>
+        <a href="https://github.com/Aditya060806/WebScope" target="_blank" rel="noopener" class="nav-link">GitHub</a>
+      </div>
+      <a href="#get-started" class="nav-cta">Get Started</a>
+      <button class="nav-hamburger" id="navToggle" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ========== HERO ========== -->
+  <section class="hero" id="hero">
+    <div class="hero-glow"></div>
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        Open Source &middot; MIT License
+      </div>
+      <h1 class="hero-title">
+        Give your AI agent<br>
+        <span class="hero-title-accent">eyes.</span>
+      </h1>
+      <p class="hero-subtitle">Without the vision model.</p>
+      <p class="hero-desc">
+        WebScope renders any web page into a structured text grid that LLMs can read, 
+        understand, and interact with — no screenshots, no vision APIs, no pixel parsing.
+      </p>
+      <div class="hero-actions">
+        <a href="#get-started" class="btn btn-primary">
+          Start for free
+        </a>
+        <a href="https://github.com/Aditya060806/WebScope" target="_blank" rel="noopener" class="btn btn-outline">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+      <p class="hero-or">or try it below &darr;</p>
+      <div class="install-bar" id="get-started">
+        <span class="install-prompt">$</span>
+        <code class="install-cmd">npm install -g webscope</code>
+        <button class="install-copy" id="copyInstall" aria-label="Copy command">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Hero Terminal Demo -->
+    <div class="hero-terminal" id="heroTerminal">
+      <div class="terminal-chrome">
+        <div class="terminal-dots">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+        </div>
+        <span class="terminal-title">webscope</span>
+      </div>
+      <div class="terminal-body">
+        <div class="terminal-line">
+          <span class="t-prompt">$</span>
+          <span class="t-cmd" id="terminalCmd"></span>
+          <span class="t-cursor" id="terminalCursor">█</span>
+        </div>
+        <pre class="terminal-output" id="terminalOutput"></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== STATS ========== -->
+  <section class="stats">
+    <div class="stats-inner">
+      <div class="stat" data-reveal>
+        <div class="stat-value">500×</div>
+        <div class="stat-label">Smaller than screenshots</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat" data-reveal>
+        <div class="stat-value">$0</div>
+        <div class="stat-label">Vision model cost</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat" data-reveal>
+        <div class="stat-value">&lt;100ms</div>
+        <div class="stat-label">Render time</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat" data-reveal>
+        <div class="stat-value">16</div>
+        <div class="stat-label">MCP tools included</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== COMPARISON ========== -->
+  <section class="comparison" id="comparison">
+    <div class="section-header" data-reveal>
+      <p class="section-tag">Why WebScope?</p>
+      <h2 class="section-title">Screenshot vs Text Grid</h2>
+      <p class="section-desc">Same page, radically different cost.</p>
+    </div>
+    <div class="compare-grid">
+      <div class="compare-card bad" data-reveal>
+        <div class="compare-header">
+          <span>Screenshot + Vision Model</span>
+          <span class="compare-tag bad-tag">~1.2 MB</span>
+        </div>
+        <div class="compare-body bad-body">
+          <div class="screenshot-blob">
+            <div class="blob-shimmer"></div>
+          </div>
+          <div class="bad-costs">
+            <div class="bad-cost"><span class="cost-x">×</span> GPT-4V / Claude Vision API call</div>
+            <div class="bad-cost"><span class="cost-x">×</span> ~1,500ms latency</div>
+            <div class="bad-cost"><span class="cost-x">×</span> ~2,000 tokens for the image alone</div>
+            <div class="bad-cost"><span class="cost-x">×</span> Hallucinations on dense UIs</div>
+          </div>
+        </div>
+      </div>
+      <div class="compare-card good" data-reveal>
+        <div class="compare-header">
+          <span>WebScope Text Grid</span>
+          <span class="compare-tag good-tag">~1.8 KB</span>
+        </div>
+        <div class="compare-body good-body">
+<pre class="grid-preview"><span class="g-ref">[0]</span> Hacker News  <span class="g-ref">[1]</span> new | <span class="g-ref">[2]</span> past | <span class="g-ref">[3]</span> comments     <span class="g-ref">[4]</span> login
+
+ 1. <span class="g-ref">[5]</span> Show HN: WebScope – text-grid browser
+    for AI agents  (github.com)
+    142 pts by adityapandey 3h ago | <span class="g-ref">[6]</span> 89 comments
+
+ 2. <span class="g-ref">[7]</span> Why LLMs don't need screenshots
+    87 pts by somebody 5h ago | <span class="g-ref">[8]</span> 34 comments
+
+<span class="g-ref">[9:______________________]</span>  <span class="g-ref">[10 Search]</span></pre>
+          <div class="good-costs">
+            <div class="good-cost"><span class="cost-check">✓</span> No vision API needed</div>
+            <div class="good-cost"><span class="cost-check">✓</span> ~80ms render time</div>
+            <div class="good-cost"><span class="cost-check">✓</span> ~50-150 tokens total</div>
+            <div class="good-cost"><span class="cost-check">✓</span> Spatial layout preserved</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== FEATURES ========== -->
+  <section class="features" id="features">
+    <div class="section-header" data-reveal>
+      <p class="section-tag">Features</p>
+      <h2 class="section-title">Built for AI agents</h2>
+      <p class="section-desc">Everything your agent needs to browse the web, in one package.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card" data-reveal>
+        <div class="feature-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        </div>
+        <h3>Spatial Layout Preserved</h3>
+        <p>See where elements are on the page, not just what they are. Proximity, grouping, and visual hierarchy — all intact.</p>
+      </div>
+      <div class="feature-card" data-reveal>
+        <div class="feature-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <h3>No Vision Model</h3>
+        <p>Zero API calls to GPT-4V or Claude Vision. The output is plain text — native to how LLMs already think.</p>
+      </div>
+      <div class="feature-card" data-reveal>
+        <div class="feature-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </div>
+        <h3>Full JavaScript Execution</h3>
+        <p>Real Chromium renders SPAs, auth flows, and dynamic content — exactly like a browser would.</p>
+      </div>
+      <div class="feature-card" data-reveal>
+        <div class="feature-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3>Session Management</h3>
+        <p>Persistent cookies, localStorage, and auth state across page transitions. Resume flows anytime.</p>
+      </div>
+      <div class="feature-card" data-reveal>
+        <div class="feature-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+        <h3>Multi-Agent Ready</h3>
+        <p>Isolated sessions run in parallel. Multiple agents browse simultaneously without collisions.</p>
+      </div>
+      <div class="feature-card" data-reveal>
+        <div class="feature-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0118 0"/><path d="M4 11V8"/><path d="M20 11V8"/><circle cx="12" cy="14" r="4"/></svg>
+        </div>
+        <h3>MCP Native</h3>
+        <p>16 tools, plug into Claude Desktop, Cursor, Windsurf, or Cline with zero configuration.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== LIVE DEMO ========== -->
+  <section class="demo" id="demo">
+    <div class="section-header" data-reveal>
+      <p class="section-tag">Live Demo</p>
+      <h2 class="section-title">See it in action</h2>
+      <p class="section-desc">One command. Real output. ~500 bytes.</p>
+    </div>
+    <div class="demo-terminal" data-reveal>
+      <div class="terminal-chrome">
+        <div class="terminal-dots">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+        </div>
+        <span class="terminal-title">Terminal</span>
+      </div>
+      <div class="terminal-body demo-body">
+        <div class="terminal-line">
+          <span class="t-prompt">$</span>
+          <span class="t-cmd">webscope https://example.com</span>
+        </div>
+        <div class="demo-divider"></div>
+        <pre class="demo-output"><span class="g-dim">Rendering: https://example.com</span>
+
+<span class="g-heading">════════════════════════════════════════</span>
+<span class="g-heading">           Example Domain</span>
+<span class="g-heading">════════════════════════════════════════</span>
+
+  This domain is for use in illustrative
+  examples in documents. You may use this
+  domain in literature without prior
+  coordination or asking for permission.
+
+  <span class="g-ref">[0]</span>More information...
+
+<span class="g-dim">────────────────────────────────────────</span>
+<span class="g-dim">Elements: 1 interactive | Rendered in 84ms</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== INTEGRATIONS ========== -->
+  <section class="integrations" id="integrations">
+    <div class="section-header" data-reveal>
+      <p class="section-tag">Integrations</p>
+      <h2 class="section-title">Works with your stack</h2>
+      <p class="section-desc">Drop WebScope into whatever you're already using.</p>
+    </div>
+    <div class="tabs-container" data-reveal>
+      <div class="tabs-bar">
+        <button class="tab active" data-tab="mcp">MCP</button>
+        <button class="tab" data-tab="openai">OpenAI</button>
+        <button class="tab" data-tab="langchain">LangChain</button>
+        <button class="tab" data-tab="crewai">CrewAI</button>
+        <button class="tab" data-tab="http">HTTP API</button>
+        <button class="tab" data-tab="node">Node.js</button>
+      </div>
+      <div class="tab-panels">
+
+        <div class="tab-panel active" id="panel-mcp">
+          <div class="panel-desc">Zero-config. Install once, any MCP client gets full web browsing.</div>
+<pre class="code-block"><span class="c-comment">// Claude Desktop — claude_desktop_config.json</span>
+{
+  <span class="c-key">"mcpServers"</span>: {
+    <span class="c-key">"webscope"</span>: {
+      <span class="c-key">"command"</span>: <span class="c-str">"webscope-mcp"</span>
+    }
+  }
+}</pre>
+        </div>
+
+        <div class="tab-panel" id="panel-openai">
+          <div class="panel-desc">Ready-made tool definitions for function calling.</div>
+<pre class="code-block"><span class="c-keyword">import</span> json
+
+<span class="c-keyword">with</span> <span class="c-fn">open</span>(<span class="c-str">"tools/tool_definitions.json"</span>) <span class="c-keyword">as</span> f:
+    webscope_tools = json.<span class="c-fn">load</span>(f)[<span class="c-str">"tools"</span>]
+
+response = openai.chat.completions.<span class="c-fn">create</span>(
+    model=<span class="c-str">"gpt-4"</span>,
+    messages=[{<span class="c-str">"role"</span>: <span class="c-str">"user"</span>, <span class="c-str">"content"</span>: <span class="c-str">"Go to example.com"</span>}],
+    tools=webscope_tools,
+)</pre>
+        </div>
+
+        <div class="tab-panel" id="panel-langchain">
+          <div class="panel-desc">LangChain tools, ready to use with any agent.</div>
+<pre class="code-block"><span class="c-keyword">from</span> tools.langchain <span class="c-keyword">import</span> get_webscope_tools
+
+<span class="c-comment"># Start the server: webscope --serve 3000</span>
+tools = <span class="c-fn">get_webscope_tools</span>(base_url=<span class="c-str">"http://localhost:3000"</span>)
+
+agent = <span class="c-fn">initialize_agent</span>(tools, llm, agent=<span class="c-str">"zero-shot-react-description"</span>)
+agent.<span class="c-fn">run</span>(<span class="c-str">"Find the top story on Hacker News"</span>)</pre>
+        </div>
+
+        <div class="tab-panel" id="panel-crewai">
+          <div class="panel-desc">CrewAI tool classes, plug into any agent role.</div>
+<pre class="code-block"><span class="c-keyword">from</span> tools.crewai <span class="c-keyword">import</span> (
+    WebScopeBrowseTool, WebScopeClickTool, WebScopeTypeTool
+)
+
+researcher = <span class="c-fn">Agent</span>(
+    role=<span class="c-str">"Web Researcher"</span>,
+    tools=[<span class="c-fn">WebScopeBrowseTool</span>(), <span class="c-fn">WebScopeClickTool</span>()],
+    llm=llm,
+)</pre>
+        </div>
+
+        <div class="tab-panel" id="panel-http">
+          <div class="panel-desc">REST API — call from anything. curl, Python, your orchestrator.</div>
+<pre class="code-block"><span class="c-comment"># Start the server</span>
+<span class="c-prompt">$</span> webscope --serve 3000
+
+<span class="c-comment"># Navigate</span>
+<span class="c-prompt">$</span> curl -X POST http://localhost:3000/navigate \
+    -H <span class="c-str">'Content-Type: application/json'</span> \
+    -d <span class="c-str">'{"url": "https://example.com"}'</span>
+
+<span class="c-comment"># Interact</span>
+<span class="c-prompt">$</span> curl -X POST http://localhost:3000/click -d <span class="c-str">'{"ref": 3}'</span>
+<span class="c-prompt">$</span> curl -X POST http://localhost:3000/type -d <span class="c-str">'{"ref": 7, "text": "hello"}'</span></pre>
+        </div>
+
+        <div class="tab-panel" id="panel-node">
+          <div class="panel-desc">Use it as a library — no server required.</div>
+<pre class="code-block"><span class="c-keyword">const</span> { AgentBrowser } = <span class="c-fn">require</span>(<span class="c-str">'webscope'</span>);
+
+<span class="c-keyword">const</span> browser = <span class="c-keyword">new</span> <span class="c-fn">AgentBrowser</span>({ cols: <span class="c-num">120</span> });
+<span class="c-keyword">const</span> { view, elements, meta } = <span class="c-keyword">await</span> browser.<span class="c-fn">navigate</span>(
+  <span class="c-str">'https://example.com'</span>
+);
+
+console.<span class="c-fn">log</span>(view);        <span class="c-comment">// The text grid</span>
+console.<span class="c-fn">log</span>(elements);    <span class="c-comment">// { 0: { selector, tag, text, href }, ... }</span>
+
+<span class="c-keyword">await</span> browser.<span class="c-fn">click</span>(<span class="c-num">3</span>);
+<span class="c-keyword">await</span> browser.<span class="c-fn">type</span>(<span class="c-num">7</span>, <span class="c-str">'hello'</span>);
+<span class="c-keyword">await</span> browser.<span class="c-fn">close</span>();</pre>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== HOW IT WORKS ========== -->
+  <section class="how-it-works" id="how-it-works">
+    <div class="section-header" data-reveal>
+      <p class="section-tag">Under the Hood</p>
+      <h2 class="section-title">How it works</h2>
+    </div>
+    <div class="pipeline">
+      <div class="pipeline-step" data-reveal>
+        <div class="step-number">01</div>
+        <div class="step-content">
+          <h3>Render</h3>
+          <p>A real Chromium instance loads the page with full JavaScript and CSS execution.</p>
+        </div>
+        <div class="step-line"></div>
+      </div>
+      <div class="pipeline-step" data-reveal>
+        <div class="step-number">02</div>
+        <div class="step-content">
+          <h3>Extract</h3>
+          <p>Every visible element's position, size, text, and interactivity is captured via <code>getBoundingClientRect()</code>.</p>
+        </div>
+        <div class="step-line"></div>
+      </div>
+      <div class="pipeline-step" data-reveal>
+        <div class="step-number">03</div>
+        <div class="step-content">
+          <h3>Map</h3>
+          <p>Pixel coordinates are converted to character grid positions, preserving spatial layout.</p>
+        </div>
+        <div class="step-line"></div>
+      </div>
+      <div class="pipeline-step" data-reveal>
+        <div class="step-number">04</div>
+        <div class="step-content">
+          <h3>Annotate</h3>
+          <p>Interactive elements get <code>[ref]</code> numbers so agents can click, type, and scroll by reference.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== USE CASES ========== -->
+  <section class="use-cases" id="use-cases">
+    <div class="section-header" data-reveal>
+      <p class="section-tag">Use Cases</p>
+      <h2 class="section-title">What you can build</h2>
+    </div>
+    <div class="cases-scroll">
+      <div class="case-card" data-reveal>
+        <div class="case-icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </div>
+        <h3>Job Applications</h3>
+        <p>Automate multi-step ATS flows across Greenhouse, Lever, and custom portals.</p>
+      </div>
+      <div class="case-card" data-reveal>
+        <div class="case-icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        </div>
+        <h3>Web Research</h3>
+        <p>Extract structured data from any page. Search, navigate, and aggregate results programmatically.</p>
+      </div>
+      <div class="case-card" data-reveal>
+        <div class="case-icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <h3>UI Testing</h3>
+        <p>Verify layouts and content without pixel matching. Assert field values across page transitions.</p>
+      </div>
+      <div class="case-card" data-reveal>
+        <div class="case-icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </div>
+        <h3>Form Automation</h3>
+        <p>Fill, validate, and submit complex forms across multi-step wizards.</p>
+      </div>
+      <div class="case-card" data-reveal>
+        <div class="case-icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <h3>Content Monitoring</h3>
+        <p>Track changes on live pages. Detect updates, compare snapshots, alert on diffs.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== CTA BANNER ========== -->
+  <section class="cta-banner">
+    <div class="cta-glow"></div>
+    <div class="cta-content" data-reveal>
+      <h2>Start in 30 seconds</h2>
+      <p>One install. Chromium downloads automatically. You're browsing.</p>
+      <div class="install-bar cta-install">
+        <span class="install-prompt">$</span>
+        <code class="install-cmd">npm install -g webscope</code>
+        <button class="install-copy" onclick="navigator.clipboard.writeText('npm install -g webscope');this.classList.add('copied');setTimeout(()=>this.classList.remove('copied'),1500)" aria-label="Copy">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        </button>
+      </div>
+      <div class="cta-actions">
+        <a href="https://github.com/Aditya060806/WebScope" target="_blank" rel="noopener" class="btn btn-outline">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          Star on GitHub
+        </a>
+        <a href="https://www.npmjs.com/package/webscope" target="_blank" rel="noopener" class="btn btn-outline">
+          View on npm
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== PRIVACY NOTE ========== -->
+  <div class="privacy-note">
+    <p>Data Privacy: WebScope runs entirely on your machine. No data is collected, transmitted, or stored by us. Your browsing sessions are yours alone.</p>
+  </div>
+
+  <!-- ========== FOOTER ========== -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="footer-logo logo-text"><span class="logo-web">Web</span><span class="logo-scope">Scope</span><span class="logo-dot">.</span></span>
+        <p class="footer-tagline">Give your AI agent eyes — without the vision model.</p>
+      </div>
+      <div class="footer-columns">
+        <div class="footer-col">
+          <h4>Product</h4>
+          <a href="#features">Features</a>
+          <a href="#integrations">Integrations</a>
+          <a href="https://www.npmjs.com/package/webscope" target="_blank" rel="noopener">npm Package</a>
+          <a href="https://www.npmjs.com/package/webscope" target="_blank" rel="noopener">Documentation</a>
+        </div>
+        <div class="footer-col">
+          <h4>Resources</h4>
+          <a href="https://github.com/Aditya060806/WebScope" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/Aditya060806/WebScope/blob/main/tools/system_prompt.md" target="_blank" rel="noopener">System Prompt</a>
+          <a href="https://github.com/Aditya060806/WebScope/blob/main/tools/tool_definitions.json" target="_blank" rel="noopener">Tool Definitions</a>
+        </div>
+        <div class="footer-col">
+          <h4>Connect</h4>
+          <a href="https://github.com/Aditya060806" target="_blank" rel="noopener">GitHub Profile</a>
+          <a href="https://www.linkedin.com/in/aditya-pandey-p1002/" target="_blank" rel="noopener">LinkedIn</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>MIT &copy; 2026 Aditya Pandey</p>
+    </div>
+  </footer>
+
+  <!-- ========== STICKY BOTTOM CTA (Recall-style) ========== -->
+  <div class="sticky-cta" id="stickyCta">
+    <div class="sticky-cta-inner">
+      <span class="sticky-cta-text">Ready to give your AI agent eyes?</span>
+      <a href="#get-started" class="sticky-cta-btn">Get Started &rarr;</a>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
